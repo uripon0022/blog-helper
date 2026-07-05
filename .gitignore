@@ -1,0 +1,10 @@
+.DS_Store
+Thumbs.db
+
+# Local editor/runtime noise
+*.log
+.env
+.env.*
+
+# Python cache
+__pycache__/

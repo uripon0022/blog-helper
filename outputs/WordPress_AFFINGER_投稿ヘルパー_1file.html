@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WordPress + AFFINGER 投稿ヘルパー</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg-1: #fff7ee;
+        --bg-2: #fcfcf8;
+        --surface: rgba(255, 255, 255, 0.9);
+        --surface-strong: #fff;
+        --line: rgba(133, 110, 77, 0.18);
+        --text: #2d2a26;
+        --muted: #6b6257;
+        --accent: #d45519;
+        --accent-2: #f07a26;
+        --good: #2d6b45;
+        --warn: #9a6300;
+        --danger: #b33e24;
+        --shadow: 0 24px 60px rgba(102, 69, 16, 0.12);
+        --radius: 22px;
+        --font: "Hiragino Sans", "Yu Gothic", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(255, 207, 127, 0.22), transparent 28%),
+          radial-gradient(circle at top right, rgba(193, 227, 194, 0.2), transparent 25%),
+          linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+        color: var(--text);
+        font-family: var(--font);
+      }
+
+      body {
+        padding: 20px;
+      }
+
+      button, input, textarea, select {
+        font: inherit;
+      }
+
+      .app {
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 18px;
+        padding: 28px;
+        border-radius: 30px;
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.94), rgba(255,248,238,0.92)),
+          linear-gradient(120deg, rgba(212,85,25,0.08), rgba(45,107,69,0.06));
+        border: 1px solid rgba(212, 85, 25, 0.12);
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1.15;
+      }
+
+      .hero-copy {
+        margin: 12px 0 0;
+        max-width: 760px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 300px minmax(540px, 1fr) 360px;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .column {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .panel {
+        padding: 20px;
+        border-radius: var(--radius);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .panel-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .button,
+      .ghost,
+      .file-label {
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 16px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+      }
+
+      .button:hover,
+      .ghost:hover,
+      .file-label:hover {
+        transform: translateY(-1px);
+      }
+
+      .button {
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff;
+      }
+
+      .button.secondary {
+        background: #efe6d7;
+        color: var(--text);
+      }
+
+      .ghost {
+        background: rgba(239, 230, 215, 0.92);
+        color: var(--text);
+      }
+
+      .ghost.danger {
+        color: var(--danger);
+      }
+
+      .toolbar,
+      .stack {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .stack {
+        flex-direction: column;
+      }
+
+      .list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 320px;
+        overflow: auto;
+      }
+
+      .list.compact {
+        max-height: 220px;
+      }
+
+      .list-item {
+        width: 100%;
+        padding: 14px;
+        border: 1px solid transparent;
+        border-radius: 16px;
+        background: var(--surface-strong);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .list-item.active {
+        border-color: rgba(212, 85, 25, 0.24);
+        box-shadow: 0 12px 28px rgba(212, 85, 25, 0.12);
+      }
+
+      .list-title {
+        margin: 0;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+
+      .list-meta {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .badge {
+        display: inline-flex;
+        margin-top: 10px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(45, 107, 69, 0.1);
+        color: var(--good);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      .field span {
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .field input,
+      .field textarea,
+      .field select {
+        width: 100%;
+        border: 1px solid rgba(133, 110, 77, 0.2);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.97);
+        padding: 12px 14px;
+        color: var(--text);
+      }
+
+      .field textarea {
+        resize: vertical;
+        line-height: 1.65;
+      }
+
+      .inline {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(239, 230, 215, 0.7);
+      }
+
+      .inline input {
+        width: auto;
+      }
+
+      .save-indicator {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(212, 85, 25, 0.1);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .subtle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .file-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(239, 230, 215, 0.92);
+      }
+
+      .file-label input {
+        display: none;
+      }
+
+      .notice {
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.95);
+        border: 1px solid rgba(133, 110, 77, 0.12);
+        line-height: 1.7;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .checks,
+      .log {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .check,
+      .log-card {
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(133, 110, 77, 0.12);
+      }
+
+      .check[data-level="error"] {
+        border-color: rgba(179, 62, 36, 0.2);
+      }
+
+      .check[data-level="warning"] {
+        border-color: rgba(154, 99, 0, 0.2);
+      }
+
+      .check-title {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .check-text {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .preview {
+        min-height: 360px;
+        padding: 24px;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,248,240,0.95));
+        border: 1px solid rgba(133, 110, 77, 0.12);
+      }
+
+      .preview h1 {
+        margin: 0 0 14px;
+        font-size: 28px;
+      }
+
+      .preview h2 {
+        margin: 24px 0 10px;
+        font-size: 20px;
+      }
+
+      .preview p {
+        margin: 0 0 12px;
+        line-height: 1.8;
+      }
+
+      .preview a {
+        color: var(--accent);
+        word-break: break-all;
+      }
+
+      .chip {
+        display: inline-block;
+        margin: 0 8px 10px 0;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(212, 85, 25, 0.1);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .output-box {
+        width: 100%;
+        min-height: 120px;
+        border: 1px solid rgba(133, 110, 77, 0.2);
+        border-radius: 14px;
+        background: rgba(255,255,255,0.97);
+        padding: 12px 14px;
+        color: var(--text);
+        line-height: 1.7;
+      }
+
+      @media (max-width: 1280px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .hero-actions {
+          justify-content: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">WordPress + AFFINGER Draft Console</p>
+          <h1>WordPress + AFFINGER 投稿ヘルパー</h1>
+          <p class="hero-copy">楽天アフィリエイト記事の下書き管理用 1 ファイル版です。記事保存、複製、テンプレート、プレビュー、バックアップまでこの1枚で動きます。WordPress への自動入力は後で拡張機能化する前提にしています。</p>
+        </div>
+        <div class="hero-actions">
+          <button id="new-article" class="button secondary" type="button">新規記事</button>
+          <button id="save-article" class="button" type="button">記事を保存</button>
+          <button id="copy-body" class="button" type="button">本文をコピー</button>
+          <button id="copy-meta" class="button" type="button">メタ説明をコピー</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="column">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>記事一覧</h2>
+              <button id="duplicate-article" class="ghost" type="button">複製</button>
+            </div>
+            <div class="toolbar">
+              <select id="status-filter"></select>
+              <button id="delete-article" class="ghost danger" type="button">削除</button>
+            </div>
+            <div id="article-list" class="list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>テンプレート</h2>
+              <button id="new-template" class="ghost" type="button">新規</button>
+            </div>
+            <div class="toolbar">
+              <button id="save-template" class="ghost" type="button">保存</button>
+              <button id="apply-template" class="ghost" type="button">反映</button>
+              <button id="delete-template" class="ghost danger" type="button">削除</button>
+            </div>
+            <div id="template-list" class="list compact"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>バックアップ</h2>
+            </div>
+            <div class="stack">
+              <button id="export-json" class="button secondary" type="button">JSONを書き出す</button>
+              <label class="file-label">
+                JSONから復元する
+                <input id="import-json" type="file" accept="application/json">
+              </label>
+              <p class="subtle">このファイルは `localStorage` に保存します。ブラウザデータ削除で消える可能性があるので、定期的にバックアップしてください。</p>
+            </div>
+          </section>
+        </aside>
+
+        <section class="column">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>記事編集</h2>
+              <div id="save-indicator" class="save-indicator">未保存</div>
+            </div>
+            <form id="article-form" class="form-grid">
+              <label class="field full">
+                <span>記事タイトル</span>
+                <input id="title" type="text" placeholder="例: 楽天で買ってよかった便利アイテム">
+              </label>
+
+              <label class="field full">
+                <span>記事本文</span>
+                <textarea id="body" rows="14" placeholder="本文を入力"></textarea>
+              </label>
+
+              <label class="field">
+                <span>カテゴリ</span>
+                <input id="category" type="text" placeholder="例: お買い物レビュー">
+              </label>
+
+              <label class="field">
+                <span>タグ</span>
+                <input id="tags" type="text" placeholder="カンマ区切りで入力">
+              </label>
+
+              <label class="field">
+                <span>投稿予定日時</span>
+                <input id="scheduledAt" type="datetime-local">
+              </label>
+
+              <label class="field">
+                <span>状態</span>
+                <select id="status"></select>
+              </label>
+
+              <label class="field inline">
+                <input id="prRequired" type="checkbox">
+                <span>PR表記を本文先頭へ自動挿入する</span>
+              </label>
+
+              <label class="field">
+                <span>PR表記</span>
+                <input id="prText" type="text" placeholder="例: ※この記事にはPRが含まれます。">
+              </label>
+
+              <label class="field full">
+                <span>記事冒頭の定型文</span>
+                <textarea id="introText" rows="3"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>記事末尾の定型文</span>
+                <textarea id="outroText" rows="3"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>楽天アフィリエイトリンク</span>
+                <input id="affiliateLink" type="url" placeholder="https://...">
+              </label>
+
+              <label class="field">
+                <span>商品名</span>
+                <input id="productName" type="text" placeholder="例: ○○クリーム">
+              </label>
+
+              <label class="field">
+                <span>抜粋</span>
+                <input id="excerpt" type="text" placeholder="一覧や導入用の短文">
+              </label>
+
+              <label class="field full">
+                <span>メタディスクリプション</span>
+                <textarea id="metaDescription" rows="3" placeholder="AFFINGER に入れる説明文"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>記事要約</span>
+                <textarea id="summary" rows="3" placeholder="必要に応じて本文冒頭に入れる要約"></textarea>
+              </label>
+
+              <label class="field">
+                <span>SNS投稿文</span>
+                <textarea id="snsText" rows="3"></textarea>
+              </label>
+
+              <label class="field">
+                <span>管理用メモ</span>
+                <textarea id="memo" rows="3"></textarea>
+              </label>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>テンプレート編集</h2>
+            </div>
+            <form id="template-form" class="form-grid">
+              <label class="field">
+                <span>テンプレート名</span>
+                <input id="templateName" type="text" placeholder="例: 商品紹介記事">
+              </label>
+
+              <label class="field">
+                <span>初期カテゴリ</span>
+                <input id="templateCategory" type="text">
+              </label>
+
+              <label class="field">
+                <span>初期タグ</span>
+                <input id="templateTags" type="text">
+              </label>
+
+              <label class="field">
+                <span>PR表記</span>
+                <input id="templatePrText" type="text">
+              </label>
+
+              <label class="field full">
+                <span>冒頭文</span>
+                <textarea id="templateIntro" rows="3"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>見出しテンプレート</span>
+                <textarea id="templateHeadings" rows="4" placeholder="例: # 特徴&#10;# 使ってみた感想&#10;# まとめ"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>末尾文</span>
+                <textarea id="templateOutro" rows="3"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>定型リンク</span>
+                <input id="templateLink" type="url" placeholder="https://...">
+              </label>
+
+              <label class="field full">
+                <span>メタ説明テンプレート</span>
+                <textarea id="templateMeta" rows="3"></textarea>
+              </label>
+            </form>
+          </section>
+        </section>
+
+        <aside class="column">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>WordPress入力メモ</h2>
+            </div>
+            <div class="notice">
+              この 1 ファイル版は、記事管理とコピペ準備用です。<br>
+              WordPress への自動入力はブラウザ拡張機能版で行う想定です。<br>
+              まずは本文とメタディスクリプションをここで整えて、管理画面に貼り付ける流れに向いています。
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>転送前チェック</h2>
+            </div>
+            <div id="checks" class="checks"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>簡易プレビュー</h2>
+            </div>
+            <article id="preview" class="preview"></article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>WordPress貼り付け用</h2>
+            </div>
+            <div class="stack">
+              <label class="field">
+                <span>本文</span>
+                <textarea id="bodyOutput" class="output-box" readonly></textarea>
+              </label>
+              <label class="field">
+                <span>メタディスクリプション</span>
+                <textarea id="metaOutput" class="output-box" readonly></textarea>
+              </label>
+              <div id="log" class="log"></div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "wp-affinger-helper-one-file-v1";
+      const STATUSES = ["すべての状態", "作成中", "未転送", "転送済み", "公開済み", "修正予定"];
+
+      const articleFields = {
+        title: document.getElementById("title"),
+        body: document.getElementById("body"),
+        category: document.getElementById("category"),
+        tags: document.getElementById("tags"),
+        scheduledAt: document.getElementById("scheduledAt"),
+        status: document.getElementById("status"),
+        prRequired: document.getElementById("prRequired"),
+        prText: document.getElementById("prText"),
+        introText: document.getElementById("introText"),
+        outroText: document.getElementById("outroText"),
+        affiliateLink: document.getElementById("affiliateLink"),
+        productName: document.getElementById("productName"),
+        excerpt: document.getElementById("excerpt"),
+        metaDescription: document.getElementById("metaDescription"),
+        summary: document.getElementById("summary"),
+        snsText: document.getElementById("snsText"),
+        memo: document.getElementById("memo")
+      };
+
+      const templateFields = {
+        name: document.getElementById("templateName"),
+        category: document.getElementById("templateCategory"),
+        tags: document.getElementById("templateTags"),
+        prText: document.getElementById("templatePrText"),
+        intro: document.getElementById("templateIntro"),
+        headings: document.getElementById("templateHeadings"),
+        outro: document.getElementById("templateOutro"),
+        link: document.getElementById("templateLink"),
+        meta: document.getElementById("templateMeta")
+      };
+
+      const ui = {
+        articleList: document.getElementById("article-list"),
+        templateList: document.getElementById("template-list"),
+        checks: document.getElementById("checks"),
+        preview: document.getElementById("preview"),
+        bodyOutput: document.getElementById("bodyOutput"),
+        metaOutput: document.getElementById("metaOutput"),
+        saveIndicator: document.getElementById("save-indicator"),
+        statusFilter: document.getElementById("status-filter"),
+        log: document.getElementById("log")
+      };
+
+      const state = {
+        db: null,
+        selectedArticleId: null,
+        selectedTemplateId: null,
+        dirty: false
+      };
+
+      init();
+
+      function init() {
+        populateSelects();
+        bindEvents();
+        state.db = loadDb();
+
+        if (!state.db.articles.length) {
+          const article = createArticle();
+          state.db.articles.push(article);
+          state.selectedArticleId = article.id;
+        } else {
+          state.selectedArticleId = state.db.activeArticleId || state.db.articles[0].id;
+        }
+
+        state.selectedTemplateId = state.db.templates[0]?.id || null;
+        renderAll();
+      }
+
+      function populateSelects() {
+        ui.statusFilter.innerHTML = STATUSES.map((status) => {
+          const value = status === "すべての状態" ? "" : status;
+          return '<option value="' + escapeHtml(value) + '">' + escapeHtml(status) + "</option>";
+        }).join("");
+
+        articleFields.status.innerHTML = STATUSES.slice(1).map((status) => {
+          return '<option value="' + escapeHtml(status) + '">' + escapeHtml(status) + "</option>";
+        }).join("");
+      }
+
+      function bindEvents() {
+        document.getElementById("new-article").addEventListener("click", onNewArticle);
+        document.getElementById("save-article").addEventListener("click", onSaveArticle);
+        document.getElementById("duplicate-article").addEventListener("click", onDuplicateArticle);
+        document.getElementById("delete-article").addEventListener("click", onDeleteArticle);
+        document.getElementById("new-template").addEventListener("click", onNewTemplate);
+        document.getElementById("save-template").addEventListener("click", onSaveTemplate);
+        document.getElementById("apply-template").addEventListener("click", onApplyTemplate);
+        document.getElementById("delete-template").addEventListener("click", onDeleteTemplate);
+        document.getElementById("copy-body").addEventListener("click", copyBody);
+        document.getElementById("copy-meta").addEventListener("click", copyMeta);
+        document.getElementById("export-json").addEventListener("click", exportJson);
+        document.getElementById("import-json").addEventListener("change", importJson);
+        ui.statusFilter.addEventListener("change", renderArticleList);
+
+        const onChange = function () {
+          state.dirty = true;
+          updateSaveIndicator();
+          renderPreviewAndChecks();
+        };
+
+        Object.values(articleFields).forEach(function (field) {
+          field.addEventListener("input", onChange);
+          field.addEventListener("change", onChange);
+        });
+
+        Object.values(templateFields).forEach(function (field) {
+          field.addEventListener("input", function () {
+            renderPreviewAndChecks();
+          });
+        });
+      }
+
+      function onNewArticle() {
+        saveCurrentIfDirty();
+        const article = createArticle();
+        state.db.articles.unshift(article);
+        state.selectedArticleId = article.id;
+        state.db.activeArticleId = article.id;
+        state.dirty = false;
+        persistDb();
+        renderAll();
+      }
+
+      function onSaveArticle() {
+        upsertCurrentArticle();
+        persistDb();
+        state.dirty = false;
+        updateSaveIndicator();
+        addLog("保存しました。");
+        renderAll();
+      }
+
+      function onDuplicateArticle() {
+        const current = getCurrentArticleDraft();
+        const copy = Object.assign({}, current, {
+          id: createId("article"),
+          title: current.title ? current.title + "（複製）" : "無題の記事（複製）",
+          status: "作成中",
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        });
+        state.db.articles.unshift(copy);
+        state.selectedArticleId = copy.id;
+        state.db.activeArticleId = copy.id;
+        state.dirty = false;
+        persistDb();
+        renderAll();
+      }
+
+      function onDeleteArticle() {
+        const current = getCurrentArticle();
+        if (!current) return;
+        if (!window.confirm("この記事を削除しますか？")) return;
+        state.db.articles = state.db.articles.filter(function (article) {
+          return article.id !== current.id;
+        });
+        if (!state.db.articles.length) {
+          state.db.articles.push(createArticle());
+        }
+        state.selectedArticleId = state.db.articles[0].id;
+        state.db.activeArticleId = state.selectedArticleId;
+        state.dirty = false;
+        persistDb();
+        renderAll();
+      }
+
+      function onNewTemplate() {
+        state.selectedTemplateId = null;
+        writeTemplateToForm(createTemplate());
+      }
+
+      function onSaveTemplate() {
+        const template = getTemplateDraft();
+        if (!template.name.trim()) {
+          window.alert("テンプレート名を入力してください。");
+          return;
+        }
+        const index = state.db.templates.findIndex(function (item) {
+          return item.id === template.id;
+        });
+        if (index >= 0) {
+          state.db.templates[index] = template;
+        } else {
+          state.db.templates.unshift(template);
+        }
+        state.selectedTemplateId = template.id;
+        persistDb();
+        addLog("テンプレートを保存しました。");
+        renderTemplateList();
+      }
+
+      function onApplyTemplate() {
+        const template = getCurrentTemplate();
+        if (!template) {
+          window.alert("テンプレートを選択してください。");
+          return;
+        }
+        const article = getCurrentArticleDraft();
+        const next = Object.assign({}, article, {
+          category: article.category || template.category,
+          tags: article.tags || template.tags,
+          prRequired: article.prRequired || Boolean(template.prText),
+          prText: article.prText || template.prText,
+          introText: article.introText || template.intro,
+          outroText: article.outroText || template.outro,
+          affiliateLink: article.affiliateLink || template.link,
+          metaDescription: article.metaDescription || template.meta,
+          body: mergeBody(article.body, template.headings)
+        });
+        writeArticleToForm(next);
+        state.dirty = true;
+        updateSaveIndicator();
+        renderPreviewAndChecks();
+        addLog("テンプレートを反映しました。");
+      }
+
+      function onDeleteTemplate() {
+        const template = getCurrentTemplate();
+        if (!template) return;
+        if (!window.confirm("テンプレートを削除しますか？")) return;
+        state.db.templates = state.db.templates.filter(function (item) {
+          return item.id !== template.id;
+        });
+        state.selectedTemplateId = state.db.templates[0]?.id || null;
+        persistDb();
+        renderTemplateList();
+        writeTemplateToForm(getCurrentTemplate() || createTemplate());
+      }
+
+      function copyBody() {
+        const article = getCurrentArticleDraft();
+        const text = composeBody(article);
+        copyText(text, "本文をコピーしました。");
+      }
+
+      function copyMeta() {
+        const article = getCurrentArticleDraft();
+        copyText(article.metaDescription || "", "メタディスクリプションをコピーしました。");
+      }
+
+      function copyText(text, message) {
+        if (!navigator.clipboard) {
+          window.alert("このブラウザではコピー機能が使えません。");
+          return;
+        }
+        navigator.clipboard.writeText(text).then(function () {
+          addLog(message);
+        }).catch(function () {
+          window.alert("コピーに失敗しました。");
+        });
+      }
+
+      function exportJson() {
+        saveCurrentIfDirty();
+        const blob = new Blob([JSON.stringify(state.db, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "wp-affinger-helper-backup.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        addLog("JSONバックアップを書き出しました。");
+      }
+
+      function importJson(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function () {
+          try {
+            const parsed = JSON.parse(reader.result);
+            if (!window.confirm("現在のデータを上書きして復元しますか？")) return;
+            state.db = normalizeDb(parsed);
+            state.selectedArticleId = state.db.activeArticleId || state.db.articles[0]?.id || createArticle().id;
+            state.selectedTemplateId = state.db.templates[0]?.id || null;
+            state.dirty = false;
+            persistDb();
+            renderAll();
+            addLog("JSONから復元しました。");
+          } catch (error) {
+            window.alert("JSONの読み込みに失敗しました。");
+          }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+      }
+
+      function renderAll() {
+        renderArticleList();
+        renderTemplateList();
+        writeArticleToForm(getCurrentArticle());
+        writeTemplateToForm(getCurrentTemplate() || createTemplate());
+        renderPreviewAndChecks();
+        updateSaveIndicator();
+      }
+
+      function renderArticleList() {
+        const filter = ui.statusFilter.value;
+        const items = state.db.articles.filter(function (article) {
+          return !filter || article.status === filter;
+        });
+
+        if (!items.length) {
+          ui.articleList.innerHTML = '<div class="empty">条件に合う記事がありません。</div>';
+          return;
+        }
+
+        ui.articleList.innerHTML = items.map(function (article) {
+          const active = article.id === state.selectedArticleId ? " active" : "";
+          return '' +
+            '<button class="list-item' + active + '" data-article-id="' + escapeHtml(article.id) + '" type="button">' +
+              '<p class="list-title">' + escapeHtml(article.title || "無題の記事") + '</p>' +
+              '<div class="list-meta">' + escapeHtml(formatDate(article.updatedAt)) + '</div>' +
+              '<div class="badge">' + escapeHtml(article.status) + '</div>' +
+            '</button>';
+        }).join("");
+
+        ui.articleList.querySelectorAll("[data-article-id]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            saveCurrentIfDirty();
+            state.selectedArticleId = button.dataset.articleId;
+            state.db.activeArticleId = state.selectedArticleId;
+            state.dirty = false;
+            persistDb();
+            renderAll();
+          });
+        });
+      }
+
+      function renderTemplateList() {
+        if (!state.db.templates.length) {
+          ui.templateList.innerHTML = '<div class="empty">テンプレートがまだありません。</div>';
+          return;
+        }
+
+        ui.templateList.innerHTML = state.db.templates.map(function (template) {
+          const active = template.id === state.selectedTemplateId ? " active" : "";
+          return '' +
+            '<button class="list-item' + active + '" data-template-id="' + escapeHtml(template.id) + '" type="button">' +
+              '<p class="list-title">' + escapeHtml(template.name) + '</p>' +
+              '<div class="list-meta">' + escapeHtml(template.category || "カテゴリ未設定") + '</div>' +
+            '</button>';
+        }).join("");
+
+        ui.templateList.querySelectorAll("[data-template-id]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            state.selectedTemplateId = button.dataset.templateId;
+            renderTemplateList();
+            writeTemplateToForm(getCurrentTemplate());
+          });
+        });
+      }
+
+      function renderPreviewAndChecks() {
+        const article = getCurrentArticleDraft();
+        const checks = buildChecks(article);
+
+        ui.checks.innerHTML = checks.map(function (item) {
+          return '' +
+            '<article class="check" data-level="' + escapeHtml(item.level) + '">' +
+              '<p class="check-title">' + escapeHtml(item.title) + '</p>' +
+              '<p class="check-text">' + escapeHtml(item.text) + '</p>' +
+            '</article>';
+        }).join("");
+
+        ui.preview.innerHTML = renderPreview(article);
+        ui.bodyOutput.value = composeBody(article);
+        ui.metaOutput.value = article.metaDescription || "";
+      }
+
+      function renderPreview(article) {
+        const title = article.title || "無題の記事";
+        const lines = composeBody(article).split("\n");
+        const chips = [];
+        if (article.prRequired && article.prText) {
+          chips.push('<span class="chip">' + escapeHtml(article.prText) + "</span>");
+        }
+        if (article.category) {
+          chips.push('<span class="chip">' + escapeHtml(article.category) + "</span>");
+        }
+        if (article.tags) {
+          chips.push('<span class="chip">' + escapeHtml(article.tags) + "</span>");
+        }
+        if (article.metaDescription) {
+          chips.push('<span class="chip">Meta: ' + escapeHtml(article.metaDescription) + "</span>");
+        }
+
+        const body = lines.map(function (line) {
+          const text = line.trimEnd();
+          if (!text) return "<p>&nbsp;</p>";
+          if (text.startsWith("# ")) return "<h2>" + escapeHtml(text.slice(2)) + "</h2>";
+          if (text.startsWith("## ")) return "<h2>" + escapeHtml(text.slice(3)) + "</h2>";
+          return "<p>" + linkify(escapeHtml(text)) + "</p>";
+        }).join("");
+
+        return chips.join("") + "<h1>" + escapeHtml(title) + "</h1>" + body;
+      }
+
+      function buildChecks(article) {
+        const checks = [];
+        const body = composeBody(article);
+
+        checks.push(article.title.trim()
+          ? info("タイトルOK", article.title)
+          : error("タイトル未入力", "記事タイトルが空欄です。"));
+
+        checks.push(article.body.trim()
+          ? info("本文OK", article.body.length + "文字の本文が入力されています。")
+          : error("本文未入力", "記事本文が空欄です。"));
+
+        if (!article.metaDescription.trim()) {
+          checks.push(warn("メタディスクリプション未入力", "AFFINGER に入れる説明文がまだありません。"));
+        } else {
+          checks.push(info("メタディスクリプションOK", article.metaDescription));
+        }
+
+        if (!article.excerpt.trim()) {
+          checks.push(warn("抜粋未入力", "必要なら一覧や導入に使う抜粋を入れてください。"));
+        }
+
+        if (article.prRequired && !article.prText.trim()) {
+          checks.push(warn("PR表記不足", "PR自動挿入を有効にしていますが、PR表記文が空です。"));
+        }
+
+        if (!article.affiliateLink.trim()) {
+          checks.push(warn("アフィリエイトリンク未入力", "必要な記事なら楽天アフィリエイトリンクを設定してください。"));
+        }
+
+        if (!article.category.trim()) {
+          checks.push(warn("カテゴリ未設定", "カテゴリを設定すると整理しやすくなります。"));
+        }
+
+        if (!article.tags.trim()) {
+          checks.push(warn("タグ未設定", "必要ならタグを設定してください。"));
+        }
+
+        if (/\{\{.+?\}\}/.test(body)) {
+          checks.push(warn("未置換テンプレート文字あり", "{{placeholder}} 形式の文字が残っています。"));
+        }
+
+        return checks;
+      }
+
+      function info(title, text) {
+        return { level: "info", title: title, text: text };
+      }
+
+      function warn(title, text) {
+        return { level: "warning", title: title, text: text };
+      }
+
+      function error(title, text) {
+        return { level: "error", title: title, text: text };
+      }
+
+      function getCurrentArticle() {
+        return state.db.articles.find(function (article) {
+          return article.id === state.selectedArticleId;
+        }) || null;
+      }
+
+      function getCurrentArticleDraft() {
+        const current = getCurrentArticle() || createArticle();
+        return Object.assign({}, current, {
+          title: articleFields.title.value,
+          body: articleFields.body.value,
+          category: articleFields.category.value,
+          tags: articleFields.tags.value,
+          scheduledAt: articleFields.scheduledAt.value,
+          status: articleFields.status.value,
+          prRequired: articleFields.prRequired.checked,
+          prText: articleFields.prText.value,
+          introText: articleFields.introText.value,
+          outroText: articleFields.outroText.value,
+          affiliateLink: articleFields.affiliateLink.value,
+          productName: articleFields.productName.value,
+          excerpt: articleFields.excerpt.value,
+          metaDescription: articleFields.metaDescription.value,
+          summary: articleFields.summary.value,
+          snsText: articleFields.snsText.value,
+          memo: articleFields.memo.value,
+          updatedAt: nowIso()
+        });
+      }
+
+      function getCurrentTemplate() {
+        return state.db.templates.find(function (template) {
+          return template.id === state.selectedTemplateId;
+        }) || null;
+      }
+
+      function getTemplateDraft() {
+        const current = getCurrentTemplate() || createTemplate();
+        return Object.assign({}, current, {
+          name: templateFields.name.value,
+          category: templateFields.category.value,
+          tags: templateFields.tags.value,
+          prText: templateFields.prText.value,
+          intro: templateFields.intro.value,
+          headings: templateFields.headings.value,
+          outro: templateFields.outro.value,
+          link: templateFields.link.value,
+          meta: templateFields.meta.value,
+          updatedAt: nowIso()
+        });
+      }
+
+      function writeArticleToForm(article) {
+        const item = article || createArticle();
+        articleFields.title.value = item.title || "";
+        articleFields.body.value = item.body || "";
+        articleFields.category.value = item.category || "";
+        articleFields.tags.value = item.tags || "";
+        articleFields.scheduledAt.value = item.scheduledAt || "";
+        articleFields.status.value = item.status || "作成中";
+        articleFields.prRequired.checked = Boolean(item.prRequired);
+        articleFields.prText.value = item.prText || "";
+        articleFields.introText.value = item.introText || "";
+        articleFields.outroText.value = item.outroText || "";
+        articleFields.affiliateLink.value = item.affiliateLink || "";
+        articleFields.productName.value = item.productName || "";
+        articleFields.excerpt.value = item.excerpt || "";
+        articleFields.metaDescription.value = item.metaDescription || "";
+        articleFields.summary.value = item.summary || "";
+        articleFields.snsText.value = item.snsText || "";
+        articleFields.memo.value = item.memo || "";
+      }
+
+      function writeTemplateToForm(template) {
+        const item = template || createTemplate();
+        templateFields.name.value = item.name || "";
+        templateFields.category.value = item.category || "";
+        templateFields.tags.value = item.tags || "";
+        templateFields.prText.value = item.prText || "";
+        templateFields.intro.value = item.intro || "";
+        templateFields.headings.value = item.headings || "";
+        templateFields.outro.value = item.outro || "";
+        templateFields.link.value = item.link || "";
+        templateFields.meta.value = item.meta || "";
+      }
+
+      function upsertCurrentArticle() {
+        const draft = getCurrentArticleDraft();
+        const index = state.db.articles.findIndex(function (article) {
+          return article.id === draft.id;
+        });
+        if (index >= 0) {
+          state.db.articles[index] = draft;
+        } else {
+          state.db.articles.unshift(draft);
+        }
+        state.selectedArticleId = draft.id;
+        state.db.activeArticleId = draft.id;
+      }
+
+      function saveCurrentIfDirty() {
+        if (!state.dirty) return;
+        upsertCurrentArticle();
+        persistDb();
+        state.dirty = false;
+      }
+
+      function persistDb() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.db));
+      }
+
+      function loadDb() {
+        try {
+          return normalizeDb(JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"));
+        } catch (error) {
+          return normalizeDb(null);
+        }
+      }
+
+      function normalizeDb(input) {
+        const db = input || {};
+        return {
+          version: 1,
+          articles: Array.isArray(db.articles) ? db.articles.map(function (article) {
+            return Object.assign(createArticle(), article);
+          }) : [],
+          templates: Array.isArray(db.templates) ? db.templates.map(function (template) {
+            return Object.assign(createTemplate(), template);
+          }) : [],
+          activeArticleId: db.activeArticleId || ""
+        };
+      }
+
+      function createArticle() {
+        return {
+          id: createId("article"),
+          title: "",
+          body: "",
+          category: "",
+          tags: "",
+          scheduledAt: "",
+          status: "作成中",
+          prRequired: false,
+          prText: "※この記事にはPRが含まれます。",
+          introText: "",
+          outroText: "",
+          affiliateLink: "",
+          productName: "",
+          excerpt: "",
+          metaDescription: "",
+          summary: "",
+          snsText: "",
+          memo: "",
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        };
+      }
+
+      function createTemplate() {
+        return {
+          id: createId("template"),
+          name: "",
+          category: "",
+          tags: "",
+          prText: "※この記事にはPRが含まれます。",
+          intro: "",
+          headings: "",
+          outro: "",
+          link: "",
+          meta: "",
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        };
+      }
+
+      function composeBody(article) {
+        const parts = [];
+        if (article.prRequired && article.prText.trim()) parts.push(article.prText.trim());
+        if (article.summary.trim()) parts.push(article.summary.trim());
+        if (article.introText.trim()) parts.push(article.introText.trim());
+        if (article.body.trim()) parts.push(article.body.trim());
+        if (article.affiliateLink.trim()) {
+          parts.push((article.productName.trim() || "関連リンク") + "\n" + article.affiliateLink.trim());
+        }
+        if (article.outroText.trim()) parts.push(article.outroText.trim());
+        return parts.filter(Boolean).join("\n\n");
+      }
+
+      function mergeBody(currentBody, headingTemplate) {
+        const parts = [];
+        if (headingTemplate.trim()) parts.push(headingTemplate.trim());
+        if (currentBody.trim()) parts.push(currentBody.trim());
+        return parts.filter(Boolean).join("\n\n");
+      }
+
+      function addLog(message) {
+        ui.log.innerHTML = '' +
+          '<article class="log-card">' +
+            '<p class="check-title">操作ログ</p>' +
+            '<p class="check-text">' + escapeHtml(message) + "</p>" +
+          "</article>";
+      }
+
+      function updateSaveIndicator() {
+        ui.saveIndicator.textContent = state.dirty ? "未保存" : "保存済み";
+      }
+
+      function formatDate(iso) {
+        if (!iso) return "日時未設定";
+        const date = new Date(iso);
+        return [
+          date.getFullYear(),
+          "/",
+          String(date.getMonth() + 1).padStart(2, "0"),
+          "/",
+          String(date.getDate()).padStart(2, "0"),
+          " ",
+          String(date.getHours()).padStart(2, "0"),
+          ":",
+          String(date.getMinutes()).padStart(2, "0")
+        ].join("");
+      }
+
+      function createId(prefix) {
+        if (window.crypto && crypto.randomUUID) {
+          return prefix + "-" + crypto.randomUUID();
+        }
+        return prefix + "-" + Date.now() + "-" + Math.floor(Math.random() * 100000);
+      }
+
+      function nowIso() {
+        return new Date().toISOString();
+      }
+
+      function linkify(text) {
+        return text.replace(
+          /(https?:\/\/[^\s<]+)/g,
+          function (url) {
+            return '<a href="' + url + '" target="_blank" rel="noreferrer">' + url + "</a>";
+          }
+        );
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    </script>
+  </body>
+</html>

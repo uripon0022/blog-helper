@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "楽天ブログ投稿ヘルパー",
+  "version": "0.1.0",
+  "description": "楽天ブログの記事作成、保存、下書き転送を補助する拡張機能です。",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://plaza.rakuten.co.jp/*",
+    "https://blog.rakuten.co.jp/*"
+  ],
+  "action": {
+    "default_title": "楽天ブログ投稿ヘルパー",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://plaza.rakuten.co.jp/*",
+        "https://blog.rakuten.co.jp/*"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "styles.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
