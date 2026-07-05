@@ -104,3 +104,147 @@
               <label class="field inline-toggle">
                 <input id="article-pr-required" name="prRequired" type="checkbox">
                 <span>PR表記を自動挿入する</span>
+              </label>
+
+              <label class="field">
+                <span>PR表記</span>
+                <input id="article-pr-text" name="prText" type="text" placeholder="例: ※この記事にはPRが含まれます。">
+              </label>
+
+              <label class="field full">
+                <span>記事冒頭の定型文</span>
+                <textarea id="article-intro-text" name="introText" rows="4" placeholder="冒頭に自動で追加する定型文"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>記事末尾の定型文</span>
+                <textarea id="article-outro-text" name="outroText" rows="4" placeholder="末尾に自動で追加する定型文"></textarea>
+              </label>
+
+              <label class="field full">
+                <span>楽天アフィリエイトリンク</span>
+                <input id="article-affiliate-link" name="affiliateLink" type="url" placeholder="https://...">
+              </label>
+
+              <label class="field">
+                <span>商品名</span>
+                <input id="article-product-name" name="productName" type="text" placeholder="例: 充電式ハンディファン">
+              </label>
+
+              <label class="field">
+                <span>管理用メモ</span>
+                <input id="article-memo" name="memo" type="text" placeholder="社内メモ、修正方針など">
+              </label>
+
+              <label class="field full">
+                <span>記事要約</span>
+                <textarea id="article-summary" name="summary" rows="3" placeholder="必要に応じて本文冒頭に使える要約"></textarea>
+              </label>
+
+              <label class="field">
+                <span>検索結果向け説明文</span>
+                <textarea id="article-search-description" name="searchDescription" rows="3" placeholder="ツール内保管用"></textarea>
+              </label>
+
+              <label class="field">
+                <span>SNS投稿用紹介文</span>
+                <textarea id="article-sns-description" name="snsDescription" rows="3" placeholder="ツール内保管用"></textarea>
+              </label>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>テンプレート編集</h2>
+              <button id="save-template-button" class="ghost-button" type="button">テンプレート保存</button>
+            </div>
+            <form id="template-form" class="form-grid compact-grid">
+              <label class="field">
+                <span>テンプレート名</span>
+                <input id="template-name" name="name" type="text" placeholder="例: 商品紹介記事">
+              </label>
+              <label class="field">
+                <span>初期カテゴリ</span>
+                <input id="template-default-category" name="defaultCategory" type="text">
+              </label>
+              <label class="field">
+                <span>初期テーマ</span>
+                <input id="template-default-theme" name="defaultTheme" type="text">
+              </label>
+              <label class="field">
+                <span>PR表記</span>
+                <input id="template-pr-text" name="prText" type="text">
+              </label>
+              <label class="field full">
+                <span>冒頭文</span>
+                <textarea id="template-intro-text" name="introText" rows="3"></textarea>
+              </label>
+              <label class="field full">
+                <span>見出し構成</span>
+                <textarea id="template-heading-template" name="headingTemplate" rows="4" placeholder="例: # 商品の特徴&#10;# 使って感じたこと&#10;# まとめ"></textarea>
+              </label>
+              <label class="field full">
+                <span>末尾文</span>
+                <textarea id="template-outro-text" name="outroText" rows="3"></textarea>
+              </label>
+              <label class="field full">
+                <span>定型リンク</span>
+                <input id="template-fixed-link" name="fixedLink" type="url" placeholder="https://...">
+              </label>
+              <label class="field full">
+                <span>注意書き</span>
+                <textarea id="template-note" name="note" rows="3"></textarea>
+              </label>
+            </form>
+          </section>
+        </section>
+
+        <aside class="preview-column">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>転送設定</h2>
+            </div>
+            <form id="settings-form" class="stack">
+              <label class="field">
+                <span>楽天ブログ投稿画面URL</span>
+                <input id="settings-editor-url" name="rakutenEditorUrl" type="url" placeholder="例: https://plaza.rakuten.co.jp/...">
+              </label>
+              <label class="field">
+                <span>転送モード</span>
+                <select id="settings-transfer-mode" name="transferMode">
+                  <option value="draft">下書き保存まで試行</option>
+                  <option value="fill-only">保存直前で止める</option>
+                </select>
+              </label>
+              <button id="save-settings-button" class="button button-secondary" type="button">設定を保存</button>
+              <p class="subtle">投稿画面URLが未設定のときは楽天ブログのトップを開きます。新規投稿URLが分かる場合は設定しておくと安定します。</p>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>転送前チェック</h2>
+            </div>
+            <div id="validation-list" class="validation-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>簡易プレビュー</h2>
+            </div>
+            <article id="preview" class="preview-card"></article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>転送ログ</h2>
+            </div>
+            <div id="transfer-log" class="transfer-log">まだ転送していません。</div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
