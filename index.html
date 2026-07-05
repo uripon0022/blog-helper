@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WordPress + AFFINGER 投稿ヘルパー</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: #fff8f2;
+      color: #2d2a26;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #eadfce;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .full {
+      grid-column: 1 / -1;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    input, textarea, select, button {
+      width: 100%;
+      box-sizing: border-box;
+      font: inherit;
+    }
+    input, textarea, select {
+      padding: 10px 12px;
+      border: 1px solid #d8c7b3;
+      border-radius: 10px;
+      background: #fff;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #d45519;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .sub {
+      background: #efe6d7;
+      color: #2d2a26;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .actions button {
+      width: auto;
+    }
+    .preview {
+      white-space: pre-wrap;
+      line-height: 1.8;
+      background: #fffdf9;
+    }
+    .muted {
+      color: #6b6257;
+      font-size: 13px;
+    }
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .full {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>WordPress + AFFINGER 投稿ヘルパー</h1>
+      <p class="muted">楽天アフィリエイト記事の下書きを1ファイルで管理する簡易版です。保存、本文生成、メタディスクリプション管理、コピペ用出力に対応します。</p>
+      <div class="actions">
+        <button type="button" onclick="saveData()">保存</button>
+        <button type="button" class="sub" onclick="loadData()">読み込み</button>
+        <button type="button" class="sub" onclick="copyBody()">本文をコピー</button>
+        <button type="button" class="sub" onclick="copyMeta()">メタ説明をコピー</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>記事入力</h2>
+
+        <div class="full">
+          <label for="title">記事タイトル</label>
+          <input id="title" type="text" placeholder="例: 楽天で買ってよかった便利アイテム">
+        </div>
+
+        <div class="full">
+          <label for="body">記事本文</label>
+          <textarea id="body" placeholder="本文を入力"></textarea>
+        </div>
+
+        <div>
+          <label for="category">カテゴリ</label>
+          <input id="category" type="text" placeholder="例: お買い物レビュー">
+        </div>
+
+        <div>
+          <label for="tags">タグ</label>
+          <input id="tags" type="text" placeholder="カンマ区切り">
+        </div>
+
+        <div class="full">
+          <label for="prText">PR表記</label>
+          <input id="prText" type="text" value="※この記事にはPRが含まれます。">
+        </div>
+
+        <div class="full">
+          <label for="introText">記事冒頭の定型文</label>
+          <textarea id="introText"></textarea>
+        </div>
+
+        <div class="full">
+          <label for="affiliateLink">楽天アフィリエイトリンク</label>
+          <input id="affiliateLink" type="url" placeholder="https://...">
+        </div>
+
+        <div>
+          <label for="productName">商品名</label>
+          <input id="productName" type="text" placeholder="例: ○○クリーム">
+        </div>
+
+        <div>
+          <label for="excerpt">抜粋</label>
+          <input id="excerpt" type="text" placeholder="導入や一覧用">
+        </div>
+
+        <div class="full">
+          <label for="metaDescription">メタディスクリプション</label>
+          <textarea id="metaDescription" placeholder="AFFINGER に入れる説明文"></textarea>
+        </div>
+
+        <div class="full">
+          <label for="outroText">記事末尾の定型文</label>
+          <textarea id="outroText"></textarea>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>生成結果</h2>
+          <label for="bodyOutput">本文</label>
+          <textarea id="bodyOutput" class="preview" readonly></textarea>
+
+          <label for="metaOutput" style="margin-top: 12px;">メタディスクリプション</label>
+          <textarea id="metaOutput" class="preview" readonly></textarea>
+        </div>
+
+        <div class="card">
+          <h2>簡易プレビュー</h2>
+          <div id="preview" class="preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ids = [
+      "title",
+      "body",
+      "category",
+      "tags",
+      "prText",
+      "introText",
+      "affiliateLink",
+      "productName",
+      "excerpt",
+      "metaDescription",
+      "outroText"
+    ];
+
+    function getValue(id) {
+      return document.getElementById(id).value || "";
+    }
+
+    function composeBody() {
+      const parts = [];
+      if (getValue("prText").trim()) parts.push(getValue("prText").trim());
+      if (getValue("introText").trim()) parts.push(getValue("introText").trim());
+      if (getValue("body").trim()) parts.push(getValue("body").trim());
+      if (getValue("affiliateLink").trim()) {
+        const name = getValue("productName").trim() || "関連リンク";
+        parts.push(name + "\n" + getValue("affiliateLink").trim());
+      }
+      if (getValue("outroText").trim()) parts.push(getValue("outroText").trim());
+      return parts.join("\n\n");
+    }
+
+    function render() {
+      const body = composeBody();
+      const meta = getValue("metaDescription");
+
+      document.getElementById("bodyOutput").value = body;
+      document.getElementById("metaOutput").value = meta;
+
+      const previewText =
+        "タイトル: " + getValue("title") + "\n\n" +
+        "カテゴリ: " + getValue("category") + "\n" +
+        "タグ: " + getValue("tags") + "\n" +
+        "抜粋: " + getValue("excerpt") + "\n" +
+        "メタディスクリプション: " + meta + "\n\n" +
+        body;
+
+      document.getElementById("preview").textContent = previewText;
+    }
+
+    function saveData() {
+      const data = {};
+      ids.forEach(id => {
+        data[id] = getValue(id);
+      });
+      localStorage.setItem("wp-affinger-helper-simple", JSON.stringify(data));
+      alert("保存しました");
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem("wp-affinger-helper-simple");
+      if (!raw) {
+        alert("保存データがありません");
+        return;
+      }
+      const data = JSON.parse(raw);
+      ids.forEach(id => {
+        document.getElementById(id).value = data[id] || "";
+      });
+      render();
+      alert("読み込みました");
+    }
+
+    function copyBody() {
+      navigator.clipboard.writeText(document.getElementById("bodyOutput").value)
+        .then(() => alert("本文をコピーしました"));
+    }
+
+    function copyMeta() {
+      navigator.clipboard.writeText(document.getElementById("metaOutput").value)
+        .then(() => alert("メタ説明をコピーしました"));
+    }
+
+    ids.forEach(id => {
+      document.getElementById(id).addEventListener("input", render);
+    });
+
+    render();
+  </script>
+</body>
+</html>
