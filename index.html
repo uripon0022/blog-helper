@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WP Post Helper Lite</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <style>
+        :root {
+            --theme-main: #ec4899;
+            --theme-soft: #fdf2f8;
+            --theme-border: #fbcfe8;
+            --theme-hover: #db2777;
+        }
+
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+        }
+
+        #editor {
+            height: 48vh;
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            font-size: 16px;
+        }
+
+        .ql-toolbar.ql-snow {
+            border: none;
+            background-color: #fff;
+            border-bottom: 2px solid var(--theme-soft);
+            border-radius: 12px 12px 0 0;
+            padding: 12px;
+        }
+
+        .ql-container.ql-snow {
+            border: none;
+            background-color: white;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .nav-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            border-left: 4px solid transparent;
+            border-bottom: 1px solid var(--theme-soft);
+        }
+
+        .nav-item:hover {
+            background: var(--theme-soft);
+        }
+
+        .nav-item.selected {
+            background: var(--theme-soft);
+            border-left-color: var(--theme-main);
+            font-weight: bold;
+        }
+
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background-color: rgba(50, 50, 50, 0.95);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 9999px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        #toast-container.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: var(--theme-border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--theme-main); }
+
+        .tab-active {
+            color: var(--theme-main);
+            border-bottom-width: 2px;
+            border-bottom-color: var(--theme-main);
+            background-color: var(--theme-soft);
+        }
+
+        .tab-inactive {
+            color: #9ca3af;
+        }
+
+        .tab-inactive:hover {
+            color: var(--theme-main);
+            background-color: var(--theme-soft);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col text-gray-700">
+
+    <div id="toast-container">通知</div>
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
+        <div class="flex items-center gap-4">
+            <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
+                📝 WP Post Helper <span class="text-xs text-gray-400 font-normal mt-1">Lite</span>
+            </h1>
+            <span id="header-save-msg" class="text-sm font-bold text-[var(--theme-main)] opacity-0 transition-opacity duration-700 select-none">
+                ✅ 保存完了
+            </span>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="setTheme('pink')" class="w-6 h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition" title="ピンク"></button>
+            <button onclick="setTheme('black')" class="w-6 h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition" title="ブラック"></button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-colors duration-300">
+            <div class="flex border-b border-[var(--theme-border)]">
+                <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300">
+                    📝 記事下書き
+                </button>
+                <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
+                    ⚙️ 設定
+                </button>
+            </div>
+
+            <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
+                <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
+                    ＋ 新しい記事を書く
+                </button>
+            </div>
+
+            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-3">
+                <div class="border-t border-gray-100 pt-1">
+                    <p class="text-xs font-bold text-gray-500 mb-2">💾 データのバックアップ</p>
+                    <div class="flex gap-2">
+                        <button onclick="exportBackup()" class="flex-1 bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2 px-2 rounded-lg hover:bg-gray-100 text-sm">
+                            保存する
+                        </button>
+                        <button onclick="openBackupFilePicker()" class="flex-1 bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-2 rounded-lg hover:bg-amber-100 text-sm">
+                            復元する
+                        </button>
+                    </div>
+                    <input type="file" id="backup-file-input" accept="application/json,.json" class="hidden" onchange="importBackup(event)">
+                    <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">記事タイトル・本文・メタディスクリプションをまとめて保存します。</p>
+                </div>
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-800">
+                    <span class="font-bold">⚠️ データ消失にご注意ください</span><br>
+                    データはブラウザ内に保存されます。Cookie やサイトデータ削除で消える可能性があるため、必要に応じてバックアップしてください。
+                </div>
+            </div>
+
+            <div id="list-container" class="flex-1 overflow-y-auto p-4"></div>
+        </aside>
+
+        <main class="flex-1 p-8 overflow-y-auto flex flex-col gap-4 bg-[var(--theme-soft)] transition-colors duration-300">
+            <div class="bg-white/80 border-l-4 border-pink-400 p-4 rounded-r shadow-sm text-sm mb-2">
+                <div class="flex items-start gap-3">
+                    <div class="text-2xl mt-0.5">💡</div>
+                    <div class="flex-1">
+                        <p class="text-gray-700 leading-relaxed font-medium mb-1">
+                            MailCopy Helper Lite の雰囲気に寄せた、WordPress + AFFINGER 用の簡易記事ヘルパーです。
+                        </p>
+                        <p class="text-gray-500 text-xs leading-relaxed">
+                            いまは <span class="font-bold text-[var(--theme-main)]">タイトル / 本文 / メタディスクリプション</span> だけに絞っています。
+                            カテゴリー選択はあとから拡張機能側で追加する前提です。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <input type="text" id="input-title"
+                    class="w-full text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent"
+                    placeholder="記事タイトルを入力">
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
+                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🖊️ 本文</label>
+                <div id="editor"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
+                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🏷️ メタディスクリプション</label>
+                <textarea id="input-meta"
+                    class="w-full min-h-[120px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
+                    placeholder="AFFINGER に入れるメタディスクリプションを入力"></textarea>
+                <div class="mt-2 text-xs text-gray-400">
+                    目安: 70〜120文字くらい
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-gray-700">プレビュー</h2>
+                    <span id="meta-count" class="text-xs font-bold text-gray-400">0文字</span>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 mb-1">タイトル</div>
+                        <div id="preview-title" class="font-bold text-lg text-gray-700">(未入力)</div>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 mb-1">メタディスクリプション</div>
+                        <div id="preview-meta" class="text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">(未入力)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end items-stretch gap-3 pt-2">
+                <button onclick="copyTextOnly()" class="bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    本文をコピー
+                </button>
+
+                <button onclick="copyMetaOnly()" class="bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    メタ説明をコピー
+                </button>
+
+                <button onclick="copyHtml()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    HTMLコピー
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script>
+        const themes = {
+            pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
+            black: { main: '#111827', soft: '#f3f4f6', border: '#d1d5db', hover: '#374151' }
+        };
+
+        function setTheme(name) {
+            const t = themes[name] || themes.pink;
+            const root = document.documentElement;
+            root.style.setProperty('--theme-main', t.main);
+            root.style.setProperty('--theme-soft', t.soft);
+            root.style.setProperty('--theme-border', t.border);
+            root.style.setProperty('--theme-hover', t.hover);
+            localStorage.setItem('wp-post-helper-theme', name);
+        }
+
+        setTheme(localStorage.getItem('wp-post-helper-theme') || 'pink');
+
+        const db = new Dexie("WPPostHelperDB");
+        db.version(1).stores({
+            drafts: '++id, title, content, metaDescription, sortDate, updatedAt'
+        });
+
+        const Size = Quill.import('attributors/style/size');
+        Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '36px'];
+        Quill.register(Size, true);
+
+        let quill = new Quill('#editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'size': Size.whitelist }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'align': [] }],
+                    [{ 'header': 1 }, { 'header': 2 }, 'blockquote'],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    ['link', 'clean']
+                ]
+            }
+        });
+
+        let currentId = null;
+        let activeTab = 'drafts';
+        let autoSaveTimer = null;
+        let headerSaveTimer = null;
+        let toastTimer = null;
+
+        function showToast(message) {
+            const toast = document.getElementById('toast-container');
+            toast.textContent = message;
+            toast.classList.add('show');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function flashSaved() {
+            const msg = document.getElementById('header-save-msg');
+            msg.classList.remove('opacity-0');
+            if (headerSaveTimer) clearTimeout(headerSaveTimer);
+            headerSaveTimer = setTimeout(() => msg.classList.add('opacity-0'), 1800);
+        }
+
+        function switchTab(tabName) {
+            activeTab = tabName;
+
+            const btnDrafts = document.getElementById('tab-drafts');
+            const btnSettings = document.getElementById('tab-settings');
+            const ctrlDrafts = document.getElementById('ctrl-drafts');
+            const ctrlSettings = document.getElementById('ctrl-settings');
+
+            if (tabName === 'drafts') {
+                btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
+                btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
+                ctrlDrafts.classList.remove('hidden');
+                ctrlSettings.classList.add('hidden');
+                loadDraftList();
+            } else {
+                btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
+                btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
+                ctrlSettings.classList.remove('hidden');
+                ctrlDrafts.classList.add('hidden');
+                document.getElementById('list-container').innerHTML = `
+                    <div class="p-4 text-sm text-gray-500 leading-relaxed">
+                        このライト版では設定画面はバックアップ用です。<br><br>
+                        入力するのは次の3つだけです。<br>
+                        ・記事タイトル<br>
+                        ・記事本文<br>
+                        ・メタディスクリプション
+                    </div>
+                `;
+            }
+        }
+
+        async function loadDraftList() {
+            const drafts = await db.drafts.orderBy('sortDate').reverse().toArray();
+            const listEl = document.getElementById('list-container');
+            listEl.innerHTML = '';
+
+            if (!drafts.length) {
+                listEl.innerHTML = `<div class="p-4 text-sm text-gray-400 text-center">まだ記事がありません</div>`;
+                return;
+            }
+
+            drafts.forEach(item => {
+                const div = document.createElement('div');
+                const isSelected = currentId === item.id;
+                div.className = `nav-item ${isSelected ? 'selected' : ''}`;
+                div.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold text-gray-700 truncate">${escapeHtml(item.title || '(無題)')}</div>
+                        <div class="text-xs text-gray-400 mt-1">${item.updatedAt || ''}</div>
+                    </div>
+                `;
+                div.onclick = () => loadDraft(item.id);
+                listEl.appendChild(div);
+            });
+        }
+
+        function createNew() {
+            currentId = null;
+            document.getElementById('input-title').value = '';
+            document.getElementById('input-meta').value = '';
+            quill.root.innerHTML = '';
+            renderPreview();
+            loadDraftList();
+            showToast('📝 新しい記事を作成中');
+        }
+
+        async function loadDraft(id) {
+            const draft = await db.drafts.get(id);
+            if (!draft) return;
+            currentId = draft.id;
+            document.getElementById('input-title').value = draft.title || '';
+            document.getElementById('input-meta').value = draft.metaDescription || '';
+            quill.root.innerHTML = draft.content || '';
+            renderPreview();
+            loadDraftList();
+        }
+
+        async function autoSave() {
+            const title = document.getElementById('input-title').value.trim();
+            const content = quill.root.innerHTML;
+            const metaDescription = document.getElementById('input-meta').value.trim();
+            const bodyText = quill.getText().trim();
+            if (!title && !bodyText && !metaDescription) return;
+
+            const nowObj = new Date();
+            const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const sortDate = nowObj.toISOString();
+            const data = { title, content, metaDescription, sortDate, updatedAt: displayDate };
+
+            if (currentId) {
+                await db.drafts.update(currentId, data);
+            } else {
+                currentId = await db.drafts.add(data);
+            }
+
+            flashSaved();
+            loadDraftList();
+        }
+
+        async function exportBackup() {
+            try {
+                const drafts = await db.drafts.toArray();
+                const backupData = {
+                    app: 'WP Post Helper Lite',
+                    backupVersion: 1,
+                    exportedAt: new Date().toISOString(),
+                    theme: localStorage.getItem('wp-post-helper-theme') || 'pink',
+                    data: { drafts }
+                };
+
+                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const now = new Date();
+                const pad = value => String(value).padStart(2, '0');
+                const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+                link.href = url;
+                link.download = `wp-post-helper-backup_${stamp}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                showToast(`💾 バックアップを保存しました（${drafts.length}件）`);
+            } catch (error) {
+                console.error(error);
+                showToast('❌ バックアップ保存に失敗しました');
+            }
+        }
+
+        function openBackupFilePicker() {
+            const input = document.getElementById('backup-file-input');
+            input.value = '';
+            input.click();
+        }
+
+        async function importBackup(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const backup = JSON.parse(text);
+                const data = backup && backup.data;
+
+                if (backup.app !== 'WP Post Helper Lite' || !data || !Array.isArray(data.drafts)) {
+                    throw new Error('invalid backup');
+                }
+
+                const ok = confirm(
+                    `バックアップを復元します。\n\n記事数：${data.drafts.length}件\n\n現在の保存データは置き換わります。`
+                );
+                if (!ok) return;
+
+                await db.transaction('rw', db.drafts, async () => {
+                    await db.drafts.clear();
+                    if (data.drafts.length) await db.drafts.bulkAdd(data.drafts);
+                });
+
+                if (backup.theme && themes[backup.theme]) {
+                    setTheme(backup.theme);
+                }
+
+                currentId = null;
+                document.getElementById('input-title').value = '';
+                document.getElementById('input-meta').value = '';
+                quill.root.innerHTML = '';
+                renderPreview();
+                if (activeTab === 'drafts') loadDraftList();
+                showToast(`✅ 復元しました（${data.drafts.length}件）`);
+            } catch (error) {
+                console.error(error);
+                showToast('❌ このバックアップファイルは読み込めません');
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        function stripHtml(html) {
+            const tmp = document.createElement("div");
+            let text = html.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/p>/gi, '\n');
+            text = text.replace(/<\/div>/gi, '\n');
+            tmp.innerHTML = text;
+            return tmp.innerText || tmp.textContent || "";
+        }
+
+        function execCopy(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                return navigator.clipboard.writeText(text);
+            }
+
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            return new Promise((resolve, reject) => {
+                try {
+                    const successful = document.execCommand('copy');
+                    successful ? resolve() : reject();
+                } catch (err) {
+                    reject(err);
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            });
+        }
+
+        async function copyHtml() {
+            try {
+                await execCopy(quill.root.innerHTML);
+                showToast('📋 HTMLをコピーしました');
+            } catch (err) {
+                console.error(err);
+                showToast('❌ コピー失敗');
+            }
+        }
+
+        async function copyTextOnly() {
+            try {
+                await execCopy(stripHtml(quill.root.innerHTML));
+                showToast('📄 本文をコピーしました');
+            } catch (err) {
+                console.error(err);
+                showToast('❌ コピー失敗');
+            }
+        }
+
+        async function copyMetaOnly() {
+            try {
+                await execCopy(document.getElementById('input-meta').value);
+                showToast('🏷️ メタ説明をコピーしました');
+            } catch (err) {
+                console.error(err);
+                showToast('❌ コピー失敗');
+            }
+        }
+
+        function renderPreview() {
+            const title = document.getElementById('input-title').value.trim();
+            const meta = document.getElementById('input-meta').value.trim();
+            document.getElementById('preview-title').textContent = title || '(未入力)';
+            document.getElementById('preview-meta').textContent = meta || '(未入力)';
+            document.getElementById('meta-count').textContent = `${meta.length}文字`;
+        }
+
+        function triggerSave() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(autoSave, 900);
+            renderPreview();
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        quill.on('text-change', triggerSave);
+        document.getElementById('input-title').addEventListener('input', triggerSave);
+        document.getElementById('input-meta').addEventListener('input', triggerSave);
+
+        switchTab('drafts');
+        renderPreview();
+    </script>
+</body>
+</html>
