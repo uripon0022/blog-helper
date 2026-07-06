@@ -105,6 +105,13 @@
             color: var(--theme-main);
             background-color: var(--theme-soft);
         }
+
+        .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-label::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item::before {
+            content: attr(data-label);
+        }
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex flex-col text-gray-700">
@@ -141,6 +148,9 @@
             <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
                 <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
                     ＋ 新しい記事を書く
+                </button>
+                <button onclick="toggleJsonImport()" class="w-full bg-[var(--theme-soft)] border border-[var(--theme-border)] text-[var(--theme-main)] hover:opacity-80 font-bold py-2 px-4 rounded-xl shadow-sm transition">
+                    JSONから取り込む
                 </button>
             </div>
 
@@ -189,6 +199,29 @@
                 </div>
             </div>
 
+            <div id="json-import-panel" class="hidden bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="font-bold text-gray-700">JSON一括取り込み</h2>
+                        <p class="text-xs text-gray-400 mt-1">AIが出力したJSONを貼り付けると、新しい記事としてまとめて追加します。</p>
+                    </div>
+                    <button onclick="toggleJsonImport(false)" class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100">
+                        閉じる
+                    </button>
+                </div>
+                <textarea id="json-import-input"
+                    class="w-full min-h-[220px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
+                    placeholder='{"items":[{"title":"記事タイトル","meta":"メタディスクリプション","body":"本文"}]}'></textarea>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                    <button onclick="clearJsonImport()" class="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100">
+                        クリア
+                    </button>
+                    <button onclick="importJsonItems()" class="rounded-full border-2 border-[var(--theme-main)] bg-white px-5 py-2 text-sm font-bold text-[var(--theme-main)] hover:bg-[var(--theme-soft)]">
+                        取り込む
+                    </button>
+                </div>
+            </div>
+
             <div>
                 <input type="text" id="input-title"
                     class="w-full text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent"
@@ -219,7 +252,7 @@
                     class="w-full min-h-[120px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
                     placeholder="AFFINGER に入れるメタディスクリプションを入力"></textarea>
                 <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span id="meta-guide" class="text-gray-400">目安: 70〜120文字くらい</span>
+                    <span id="meta-guide" class="text-gray-400">目安: 120〜160文字くらい</span>
                     <span id="meta-status" class="font-bold text-gray-400">未入力</span>
                 </div>
             </div>
@@ -352,9 +385,15 @@
                 picker.querySelectorAll('span').forEach(span => {
                     const value = span.getAttribute('data-value');
                     if (sizeLabels[value]) {
-                        span.textContent = sizeLabels[value];
+                        span.setAttribute('data-label', sizeLabels[value]);
                     }
                 });
+            }
+
+            const sizeLabel = document.querySelector('.ql-size .ql-picker-label');
+            if (sizeLabel) {
+                sizeLabel.setAttribute('data-value', '16px');
+                sizeLabel.setAttribute('data-label', sizeLabels['16px']);
             }
 
             const headerPicker = document.querySelector('.ql-header .ql-picker-options');
@@ -362,11 +401,16 @@
                 headerPicker.querySelectorAll('.ql-picker-item').forEach(item => {
                     const value = item.getAttribute('data-value');
                     if (value) {
-                        item.textContent = `H${value}`;
+                        item.setAttribute('data-label', `H${value}`);
                     } else {
-                        item.textContent = '標準';
+                        item.setAttribute('data-label', '標準');
                     }
                 });
+            }
+
+            const headerLabel = document.querySelector('.ql-header .ql-picker-label');
+            if (headerLabel) {
+                headerLabel.setAttribute('data-label', '標準');
             }
         }, 500);
 
@@ -378,8 +422,9 @@
         const defaultSettings = {
             metaPrefix: '',
             metaSuffix: '',
-            metaMin: 70,
-            metaMax: 120
+            metaMin: 120,
+            metaMax: 160,
+            metaRangeCustomized: false
         };
 
         function showToast(message) {
@@ -400,11 +445,16 @@
         function loadAppSettings() {
             try {
                 const parsed = JSON.parse(localStorage.getItem('blog-helper-settings') || '{}');
+                const parsedMin = Number(parsed.metaMin);
+                const parsedMax = Number(parsed.metaMax);
+                const hasSavedRange = Number.isFinite(parsedMin) && Number.isFinite(parsedMax);
+                const hasCustomRange = parsed.metaRangeCustomized === true || (hasSavedRange && !(parsedMin === 70 && parsedMax === 120));
                 return {
                     metaPrefix: parsed.metaPrefix || '',
                     metaSuffix: parsed.metaSuffix || '',
-                    metaMin: Number.isFinite(Number(parsed.metaMin)) ? Math.max(1, Number(parsed.metaMin)) : defaultSettings.metaMin,
-                    metaMax: Number.isFinite(Number(parsed.metaMax)) ? Math.max(1, Number(parsed.metaMax)) : defaultSettings.metaMax
+                    metaMin: hasCustomRange ? Math.max(1, parsedMin) : defaultSettings.metaMin,
+                    metaMax: hasCustomRange ? Math.max(1, parsedMax) : defaultSettings.metaMax,
+                    metaRangeCustomized: hasCustomRange
                 };
             } catch (error) {
                 return { ...defaultSettings };
@@ -517,6 +567,16 @@
             showToast('📝 新しい記事を作成中');
         }
 
+        function toggleJsonImport(forceState) {
+            const panel = document.getElementById('json-import-panel');
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !shouldOpen);
+        }
+
+        function clearJsonImport() {
+            document.getElementById('json-import-input').value = '';
+        }
+
         async function loadDraft(id) {
             const draft = await db.drafts.get(id);
             if (!draft) return;
@@ -548,6 +608,68 @@
 
             flashSaved();
             loadDraftList();
+        }
+
+        async function importJsonItems() {
+            const input = document.getElementById('json-import-input').value.trim();
+            if (!input) {
+                showToast('❌ JSONを貼り付けてください');
+                return;
+            }
+
+            let parsed;
+            try {
+                parsed = JSON.parse(input);
+            } catch (error) {
+                showToast('❌ JSONの形式が正しくありません');
+                return;
+            }
+
+            const items = Array.isArray(parsed?.items) ? parsed.items : null;
+            if (!items) {
+                showToast('❌ JSONの形式が正しくありません');
+                return;
+            }
+
+            try {
+                const baseTime = Date.now();
+                const createdIds = await db.transaction('rw', db.drafts, async () => {
+                    const ids = [];
+
+                    for (let index = 0; index < items.length; index += 1) {
+                        const item = items[index] && typeof items[index] === 'object' ? items[index] : {};
+                        const nowObj = new Date(baseTime + index * 1000);
+                        const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        const sortDate = nowObj.toISOString();
+
+                        const id = await db.drafts.add({
+                            title: typeof item.title === 'string' ? item.title : '',
+                            metaDescription: typeof item.meta === 'string' ? item.meta : '',
+                            content: plainTextToEditorHtml(typeof item.body === 'string' ? item.body : ''),
+                            sortDate,
+                            updatedAt: displayDate
+                        });
+
+                        ids.push(id);
+                    }
+
+                    return ids;
+                });
+
+                if (!createdIds.length) {
+                    showToast('❌ 取り込める記事がありません');
+                    return;
+                }
+
+                await loadDraft(createdIds[createdIds.length - 1]);
+                clearJsonImport();
+                toggleJsonImport(false);
+                flashSaved();
+                showToast(`✅ ${createdIds.length}件取り込みました`);
+            } catch (error) {
+                console.error(error);
+                showToast('❌ JSONの取り込みに失敗しました');
+            }
         }
 
         async function exportBackup() {
@@ -623,7 +745,8 @@
                         metaPrefix: backup.settings.metaPrefix || '',
                         metaSuffix: backup.settings.metaSuffix || '',
                         metaMin: Number.isFinite(Number(backup.settings.metaMin)) ? Math.max(1, Number(backup.settings.metaMin)) : defaultSettings.metaMin,
-                        metaMax: Number.isFinite(Number(backup.settings.metaMax)) ? Math.max(1, Number(backup.settings.metaMax)) : defaultSettings.metaMax
+                        metaMax: Number.isFinite(Number(backup.settings.metaMax)) ? Math.max(1, Number(backup.settings.metaMax)) : defaultSettings.metaMax,
+                        metaRangeCustomized: backup.settings.metaRangeCustomized === true
                     });
                 }
 
@@ -653,6 +776,11 @@
             text = text.replace(/<\/div>/gi, '\n');
             tmp.innerHTML = text;
             return tmp.innerText || tmp.textContent || "";
+        }
+
+        function plainTextToEditorHtml(text) {
+            if (!text) return '';
+            return `<p>${escapeHtml(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br>')}</p>`;
         }
 
         function execCopy(text) {
@@ -716,7 +844,8 @@
                 metaPrefix: (document.getElementById('setting-meta-prefix')?.value || '').trim(),
                 metaSuffix: (document.getElementById('setting-meta-suffix')?.value || '').trim(),
                 metaMin: Math.max(1, minInput || defaultSettings.metaMin),
-                metaMax: Math.max(1, maxInput || defaultSettings.metaMax)
+                metaMax: Math.max(1, maxInput || defaultSettings.metaMax),
+                metaRangeCustomized: true
             };
 
             if (nextSettings.metaMin > nextSettings.metaMax) {
