@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WP Post Helper Lite</title>
+    <title>ブログヘルパー Lite</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
@@ -114,7 +114,7 @@
     <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
         <div class="flex items-center gap-4">
             <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
-                📝 WP Post Helper <span class="text-xs text-gray-400 font-normal mt-1">Lite</span>
+                📝 ブログヘルパー <span class="text-xs text-gray-400 font-normal mt-1">Lite</span>
             </h1>
             <span id="header-save-msg" class="text-sm font-bold text-[var(--theme-main)] opacity-0 transition-opacity duration-700 select-none">
                 ✅ 保存完了
@@ -145,6 +145,12 @@
             </div>
 
             <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-3">
+                <div class="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-soft)] p-3">
+                    <p class="text-xs font-bold text-[var(--theme-main)] mb-2">🏷️ メタ設定</p>
+                    <p class="text-[11px] text-gray-500 leading-relaxed">
+                        定型文や推奨文字数をここで保存しておくと、メタディスクリプション入力欄へすぐ反映できます。
+                    </p>
+                </div>
                 <div class="border-t border-gray-100 pt-1">
                     <p class="text-xs font-bold text-gray-500 mb-2">💾 データのバックアップ</p>
                     <div class="flex gap-2">
@@ -195,12 +201,23 @@
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🏷️ メタディスクリプション</label>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <label class="block text-xs font-bold text-[var(--theme-main)] ml-1">🏷️ メタディスクリプション</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="applyMetaTemplate()" class="rounded-full border border-[var(--theme-border)] bg-[var(--theme-soft)] px-3 py-1 text-[11px] font-bold text-[var(--theme-main)] hover:opacity-80">
+                            定型文を適用
+                        </button>
+                        <button onclick="clearMeta()" class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-bold text-gray-500 hover:bg-gray-100">
+                            クリア
+                        </button>
+                    </div>
+                </div>
                 <textarea id="input-meta"
                     class="w-full min-h-[120px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
                     placeholder="AFFINGER に入れるメタディスクリプションを入力"></textarea>
-                <div class="mt-2 text-xs text-gray-400">
-                    目安: 70〜120文字くらい
+                <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span id="meta-guide" class="text-gray-400">目安: 70〜120文字くらい</span>
+                    <span id="meta-status" class="font-bold text-gray-400">未入力</span>
                 </div>
             </div>
 
@@ -215,13 +232,25 @@
                         <div id="preview-title" class="font-bold text-lg text-gray-700">(未入力)</div>
                     </div>
                     <div>
+                        <div class="text-xs font-bold text-gray-400 mb-1">本文</div>
+                        <div id="preview-body" class="ql-editor !p-0 text-sm leading-relaxed text-gray-700 max-h-72 overflow-y-auto"></div>
+                    </div>
+                    <div>
                         <div class="text-xs font-bold text-gray-400 mb-1">メタディスクリプション</div>
                         <div id="preview-meta" class="text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">(未入力)</div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end items-stretch gap-3 pt-2">
+            <div class="flex flex-wrap justify-end items-stretch gap-3 pt-2">
+                <button onclick="duplicateCurrent()" class="bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    複製する
+                </button>
+
+                <button onclick="deleteCurrent()" class="bg-white border-2 border-red-300 text-red-500 hover:bg-red-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    削除する
+                </button>
+
                 <button onclick="copyTextOnly()" class="bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
                     本文をコピー
                 </button>
@@ -285,6 +314,12 @@
         let autoSaveTimer = null;
         let headerSaveTimer = null;
         let toastTimer = null;
+        const defaultSettings = {
+            metaPrefix: '',
+            metaSuffix: '',
+            metaMin: 70,
+            metaMax: 120
+        };
 
         function showToast(message) {
             const toast = document.getElementById('toast-container');
@@ -299,6 +334,68 @@
             msg.classList.remove('opacity-0');
             if (headerSaveTimer) clearTimeout(headerSaveTimer);
             headerSaveTimer = setTimeout(() => msg.classList.add('opacity-0'), 1800);
+        }
+
+        function loadAppSettings() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem('blog-helper-settings') || '{}');
+                return {
+                    metaPrefix: parsed.metaPrefix || '',
+                    metaSuffix: parsed.metaSuffix || '',
+                    metaMin: Number.isFinite(Number(parsed.metaMin)) ? Math.max(1, Number(parsed.metaMin)) : defaultSettings.metaMin,
+                    metaMax: Number.isFinite(Number(parsed.metaMax)) ? Math.max(1, Number(parsed.metaMax)) : defaultSettings.metaMax
+                };
+            } catch (error) {
+                return { ...defaultSettings };
+            }
+        }
+
+        function saveAppSettings(nextSettings) {
+            localStorage.setItem('blog-helper-settings', JSON.stringify(nextSettings));
+        }
+
+        function renderSettingsPanel() {
+            const settings = loadAppSettings();
+            document.getElementById('list-container').innerHTML = `
+                <div class="space-y-4">
+                    <div class="rounded-xl border border-[var(--theme-border)] bg-[var(--theme-soft)] p-3">
+                        <div class="text-xs font-bold text-[var(--theme-main)] mb-1">メタ設定</div>
+                        <div class="text-[11px] leading-relaxed text-gray-500">
+                            よく使う冒頭文・末尾文・目安文字数をここで保存できます。
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">冒頭の定型文</label>
+                        <textarea id="setting-meta-prefix" class="w-full min-h-[90px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]" placeholder="例: この記事では、〜をわかりやすく紹介します。">${escapeHtml(settings.metaPrefix)}</textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">末尾の定型文</label>
+                        <textarea id="setting-meta-suffix" class="w-full min-h-[90px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]" placeholder="例: 気になる方はぜひチェックしてみてください。">${escapeHtml(settings.metaSuffix)}</textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">最小文字数</label>
+                            <input id="setting-meta-min" type="number" min="1" class="w-full rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]" value="${settings.metaMin}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">最大文字数</label>
+                            <input id="setting-meta-max" type="number" min="1" class="w-full rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]" value="${settings.metaMax}">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <button onclick="saveMetaSettings()" class="w-full rounded-xl border-2 border-[var(--theme-main)] bg-white px-4 py-2 text-sm font-bold text-[var(--theme-main)] hover:bg-[var(--theme-soft)]">
+                            設定を保存
+                        </button>
+                        <button onclick="resetMetaSettings()" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100">
+                            初期値に戻す
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         function switchTab(tabName) {
@@ -320,15 +417,7 @@
                 btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
                 ctrlSettings.classList.remove('hidden');
                 ctrlDrafts.classList.add('hidden');
-                document.getElementById('list-container').innerHTML = `
-                    <div class="p-4 text-sm text-gray-500 leading-relaxed">
-                        このライト版では設定画面はバックアップ用です。<br><br>
-                        入力するのは次の3つだけです。<br>
-                        ・記事タイトル<br>
-                        ・記事本文<br>
-                        ・メタディスクリプション
-                    </div>
-                `;
+                renderSettingsPanel();
             }
         }
 
@@ -404,10 +493,11 @@
             try {
                 const drafts = await db.drafts.toArray();
                 const backupData = {
-                    app: 'WP Post Helper Lite',
+                    app: 'ブログヘルパー Lite',
                     backupVersion: 1,
                     exportedAt: new Date().toISOString(),
                     theme: localStorage.getItem('wp-post-helper-theme') || 'pink',
+                    settings: loadAppSettings(),
                     data: { drafts }
                 };
 
@@ -418,7 +508,7 @@
                 const pad = value => String(value).padStart(2, '0');
                 const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
                 link.href = url;
-                link.download = `wp-post-helper-backup_${stamp}.json`;
+                link.download = `blog-helper-backup_${stamp}.json`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -445,7 +535,11 @@
                 const backup = JSON.parse(text);
                 const data = backup && backup.data;
 
-                if (backup.app !== 'WP Post Helper Lite' || !data || !Array.isArray(data.drafts)) {
+                if (
+                    (backup.app !== 'WP Post Helper Lite' && backup.app !== 'ブログヘルパー Lite') ||
+                    !data ||
+                    !Array.isArray(data.drafts)
+                ) {
                     throw new Error('invalid backup');
                 }
 
@@ -463,12 +557,25 @@
                     setTheme(backup.theme);
                 }
 
+                if (backup.settings) {
+                    saveAppSettings({
+                        metaPrefix: backup.settings.metaPrefix || '',
+                        metaSuffix: backup.settings.metaSuffix || '',
+                        metaMin: Number.isFinite(Number(backup.settings.metaMin)) ? Math.max(1, Number(backup.settings.metaMin)) : defaultSettings.metaMin,
+                        metaMax: Number.isFinite(Number(backup.settings.metaMax)) ? Math.max(1, Number(backup.settings.metaMax)) : defaultSettings.metaMax
+                    });
+                }
+
                 currentId = null;
                 document.getElementById('input-title').value = '';
                 document.getElementById('input-meta').value = '';
                 quill.root.innerHTML = '';
                 renderPreview();
-                if (activeTab === 'drafts') loadDraftList();
+                if (activeTab === 'drafts') {
+                    loadDraftList();
+                } else {
+                    renderSettingsPanel();
+                }
                 showToast(`✅ 復元しました（${data.drafts.length}件）`);
             } catch (error) {
                 console.error(error);
@@ -541,12 +648,115 @@
             }
         }
 
+        function saveMetaSettings() {
+            const minInput = Number(document.getElementById('setting-meta-min')?.value || defaultSettings.metaMin);
+            const maxInput = Number(document.getElementById('setting-meta-max')?.value || defaultSettings.metaMax);
+            const nextSettings = {
+                metaPrefix: (document.getElementById('setting-meta-prefix')?.value || '').trim(),
+                metaSuffix: (document.getElementById('setting-meta-suffix')?.value || '').trim(),
+                metaMin: Math.max(1, minInput || defaultSettings.metaMin),
+                metaMax: Math.max(1, maxInput || defaultSettings.metaMax)
+            };
+
+            if (nextSettings.metaMin > nextSettings.metaMax) {
+                showToast('❌ 最小文字数は最大文字数以下にしてください');
+                return;
+            }
+
+            saveAppSettings(nextSettings);
+            renderPreview();
+            showToast('⚙️ メタ設定を保存しました');
+        }
+
+        function resetMetaSettings() {
+            saveAppSettings({ ...defaultSettings });
+            renderSettingsPanel();
+            renderPreview();
+            showToast('↩️ メタ設定を初期化しました');
+        }
+
+        function applyMetaTemplate() {
+            const settings = loadAppSettings();
+            const metaInput = document.getElementById('input-meta');
+            const currentMeta = metaInput.value.trim();
+            const pieces = [settings.metaPrefix, currentMeta, settings.metaSuffix].filter(Boolean);
+            metaInput.value = pieces.join(' ');
+            triggerSave();
+            showToast('🏷️ メタ定型文を反映しました');
+        }
+
+        function clearMeta() {
+            document.getElementById('input-meta').value = '';
+            triggerSave();
+            showToast('🧹 メタ説明をクリアしました');
+        }
+
+        async function duplicateCurrent() {
+            const title = document.getElementById('input-title').value.trim();
+            const content = quill.root.innerHTML;
+            const metaDescription = document.getElementById('input-meta').value.trim();
+            const bodyText = quill.getText().trim();
+
+            if (!title && !bodyText && !metaDescription) {
+                showToast('❌ 複製する記事がありません');
+                return;
+            }
+
+            const nowObj = new Date();
+            const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const sortDate = nowObj.toISOString();
+
+            const duplicatedId = await db.drafts.add({
+                title: title ? `${title} (コピー)` : '(無題) (コピー)',
+                content,
+                metaDescription,
+                sortDate,
+                updatedAt: displayDate
+            });
+
+            await loadDraft(duplicatedId);
+            showToast('📄 記事を複製しました');
+        }
+
+        async function deleteCurrent() {
+            if (!currentId) {
+                showToast('❌ まだ保存された記事がありません');
+                return;
+            }
+
+            const ok = confirm('この記事を削除しますか？');
+            if (!ok) return;
+
+            await db.drafts.delete(currentId);
+            createNew();
+            showToast('🗑️ 記事を削除しました');
+        }
+
         function renderPreview() {
+            const settings = loadAppSettings();
             const title = document.getElementById('input-title').value.trim();
             const meta = document.getElementById('input-meta').value.trim();
+            const body = quill.root.innerHTML.trim();
             document.getElementById('preview-title').textContent = title || '(未入力)';
+            document.getElementById('preview-body').innerHTML = body || '<p class="text-gray-400">(未入力)</p>';
             document.getElementById('preview-meta').textContent = meta || '(未入力)';
             document.getElementById('meta-count').textContent = `${meta.length}文字`;
+            document.getElementById('meta-guide').textContent = `目安: ${settings.metaMin}〜${settings.metaMax}文字くらい`;
+
+            const statusEl = document.getElementById('meta-status');
+            if (!meta.length) {
+                statusEl.textContent = '未入力';
+                statusEl.className = 'font-bold text-gray-400';
+            } else if (meta.length < settings.metaMin) {
+                statusEl.textContent = '短め';
+                statusEl.className = 'font-bold text-amber-500';
+            } else if (meta.length > settings.metaMax) {
+                statusEl.textContent = '長め';
+                statusEl.className = 'font-bold text-red-500';
+            } else {
+                statusEl.textContent = 'ちょうどよさそう';
+                statusEl.className = 'font-bold text-emerald-500';
+            }
         }
 
         function triggerSave() {
