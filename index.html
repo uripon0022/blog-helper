@@ -1,575 +1,3456 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WP Post Helper Lite</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <style>
-        :root {
-            --theme-main: #ec4899;
-            --theme-soft: #fdf2f8;
-            --theme-border: #fbcfe8;
-            --theme-hover: #db2777;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MailCopy Helper</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📩</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+    
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quill-image-resize-module@3.0.0/image-resize.min.js"></script>
+    
+  <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+  <style>
+    /* ▼▼▼ テーマカラー変数定義 ▼▼▼ */
+    :root {
+      /* 元のくっきりした色に戻しました */
+      --theme-main: #16a34a;  /* main */
+      --theme-soft: #ecfdf5;  /* soft */
+      --theme-border: #86efac; /* border */
+      --theme-hover: #15803d; /* hover */
+      
+      --base-font-size: 16px; /* 基本フォントサイズ */
+    }
 
-        body {
-            font-family: 'M PLUS Rounded 1c', sans-serif;
-        }
+    body { font-family: 'M PLUS Rounded 1c', sans-serif; }
+    
+    #editor { 
+      height: 60vh; 
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+    }
+    
+    /* エディタ内のフォントサイズ適用 */
+    #editor .ql-editor {
+      font-size: var(--base-font-size);
+      line-height: 1.8;
+    }
+    #editor .ql-editor a {
+      color: #2563eb !important;
+      text-decoration: underline !important;
+    }
+    
+    /* ツールバー */
+    .ql-toolbar.ql-snow {
+      border: none;
+      background-color: #fff;
+      border-bottom: 2px solid var(--theme-soft);
+      border-radius: 12px 12px 0 0;
+      padding: 8px;
+    }
+    .ql-container.ql-snow {
+      border: none;
+      background-color: white;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
 
-        #editor {
-            height: 48vh;
-            font-family: 'M PLUS Rounded 1c', sans-serif;
-            font-size: 16px;
-        }
+    /* Undo/Redoアイコンの調整 */
+    .ql-snow .ql-picker.ql-size { width: 110px; }
+    .ql-undo, .ql-redo { outline: none; }
+    .ql-undo:hover svg, .ql-redo:hover svg { stroke: var(--theme-main) !important; }
 
-        .ql-toolbar.ql-snow {
-            border: none;
-            background-color: #fff;
-            border-bottom: 2px solid var(--theme-soft);
-            border-radius: 12px 12px 0 0;
-            padding: 12px;
-        }
+    /* リストアイテム */
+    .nav-item { 
+      @apply p-3 mb-2 rounded-lg cursor-pointer transition border-l-4 border-transparent hover:bg-[var(--theme-soft)] relative flex justify-between items-center group; 
+      border-bottom: 1px solid var(--theme-soft);
+    }
+    .nav-item.selected { 
+      background-color: var(--theme-soft);
+      border-left-color: var(--theme-main);
+      font-weight: bold;
+    }
 
-        .ql-container.ql-snow {
-            border: none;
-            background-color: white;
-            border-radius: 0 0 12px 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        }
+    /* 定型文リスト用 */
+    .snippet-item {
+      @apply p-2 mb-2 rounded-lg cursor-pointer transition border border-gray-100 hover:bg-[var(--theme-soft)] hover:border-[var(--theme-border)] relative flex justify-between items-center group;
+      background-color: #fff;
+    }
+    .snippet-item.selected {
+      background-color: var(--theme-soft);
+      border-left: 4px solid var(--theme-main);
+    }
+    /* ドラッグ中のスタイル */
+    .snippet-item.dragging {
+      opacity: 0.5;
+      background-color: #f3f4f6; /* gray-100 */
+      border: 2px dashed #d1d5db; /* gray-300 */
+    }
 
-        .nav-item {
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-            border-left: 4px solid transparent;
-            border-bottom: 1px solid var(--theme-soft);
-        }
+    .folder-sort-list {
+      @apply flex flex-col gap-2;
+    }
+    .folder-sort-item {
+      @apply gap-2;
+    }
+    .folder-sort-item.dragging {
+      opacity: 0.5;
+      background-color: #f3f4f6;
+      border: 2px dashed #d1d5db;
+    }
+    .folder-sort-item.locked-folder {
+      cursor: pointer;
+    }
+    .folder-sort-handle {
+      @apply shrink-0 select-none text-lg leading-none px-2;
+      width: 2.25rem;
+      color: #d1d5db;
+      cursor: grab;
+      text-align: center;
+    }
+    .folder-sort-item.locked-folder .folder-sort-handle {
+      cursor: default;
+      opacity: 0;
+    }
 
-        .nav-item:hover {
-            background: var(--theme-soft);
-        }
+    .settings-folder-item {
+      background-color: #fff;
+      align-items: center;
+      margin-bottom: 0;
+      padding-top: 0.875rem;
+      padding-bottom: 0.875rem;
+    }
+    .settings-list-section {
+      background-color: #fff;
+      border: 1px solid #f3e8ef;
+      border-radius: 1rem;
+      padding: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .settings-list-section:last-child {
+      margin-bottom: 0;
+    }
+    .settings-list-title {
+      display: block;
+      margin-bottom: 0.75rem;
+    }
+    .settings-list-items {
+      @apply flex flex-col gap-2;
+      position: relative;
+    }
+    .settings-list-items .nav-item {
+      margin-bottom: 0;
+    }
+    .settings-hf-item {
+      margin-bottom: 0;
+      background-color: #fff;
+    }
+    .settings-list-section .settings-list-items:last-child {
+      padding-bottom: 0.125rem;
+    }
 
-        .nav-item.selected {
-            background: var(--theme-soft);
-            border-left-color: var(--theme-main);
-            font-weight: bold;
-        }
+    /* 年月セパレーター */
+    .year-group-header {
+      @apply flex items-center justify-between text-sm font-bold mt-3 mb-1 pl-2 pr-2 py-1;
+      color: var(--theme-main);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      contain: paint;
+    }
+    .year-group-header.collapsed {
+      opacity: 0.85;
+    }
 
-        #toast-container {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background-color: rgba(50, 50, 50, 0.95);
-            color: white;
-            padding: 12px 30px;
-            border-radius: 9999px;
-            font-size: 0.95rem;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            opacity: 0;
-            transition: opacity 0.3s, transform 0.3s;
-            pointer-events: none;
-            z-index: 9999;
-        }
+    .month-header {
+      @apply text-xs font-bold text-gray-400 mt-4 mb-2 pl-2 border-b border-gray-100 pb-1;
+    }
 
-        #toast-container.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
+    .folder-group-header {
+      @apply flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-bold;
+      background: linear-gradient(135deg, rgba(255,255,255,0.95), var(--theme-soft));
+      border-color: var(--theme-border);
+      color: var(--theme-main);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      contain: paint;
+    }
+    .folder-group-header.collapsed {
+      opacity: 0.9;
+    }
+    .draft-batch-selected {
+      box-shadow: inset 0 0 0 1px var(--theme-border);
+      background-color: #fff;
+    }
 
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: var(--theme-border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--theme-main); }
+    .default-folder-header {
+      @apply flex items-center justify-between mt-3 mb-1 px-1 py-1 text-sm font-bold;
+      color: var(--theme-main);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    
+    /* トースト通知 */
+    #toast-container {
+      position: fixed;
+      bottom: 80px; 
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background-color: rgba(50, 50, 50, 0.95);
+      color: white;
+      padding: 12px 30px;
+      border-radius: 50px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    #toast-container.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
-        .tab-active {
-            color: var(--theme-main);
-            border-bottom-width: 2px;
-            border-bottom-color: var(--theme-main);
-            background-color: var(--theme-soft);
-        }
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: var(--theme-border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--theme-main); }
+    
+    /* タブのアクティブスタイル */
+    .tab-active {
+      color: var(--theme-main);
+      border-bottom-width: 2px;
+      border-bottom-color: var(--theme-main);
+      background-color: var(--theme-soft);
+    }
+    .tab-inactive {
+      color: #9ca3af; /* gray-400 */
+    }
+    .tab-inactive:hover {
+      color: var(--theme-main);
+      background-color: var(--theme-soft);
+    }
 
-        .tab-inactive {
-            color: #9ca3af;
-        }
+    /* モバイル用メニュー制御 */
+    .sidebar-open { transform: translateX(0) !important; }
+    .overlay-open { display: block !important; }
 
-        .tab-inactive:hover {
-            color: var(--theme-main);
-            background-color: var(--theme-soft);
-        }
-    </style>
+    @media (max-width: 767px) {
+      #app-header {
+        padding-top: max(0.5rem, env(safe-area-inset-top));
+        padding-right: max(0.5rem, env(safe-area-inset-right));
+        padding-left: max(0.5rem, env(safe-area-inset-left));
+      }
+
+      #mobile-menu-button {
+        display: flex;
+        width: 2.5rem;
+        height: 2.5rem;
+        flex: 0 0 2.5rem;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+        line-height: 1;
+      }
+
+      #app-title {
+        min-width: 0;
+        font-size: 0.95rem;
+      }
+
+      #theme-buttons {
+        gap: 0.2rem;
+      }
+    }
+
+    @media (min-width: 768px) {
+      #left-sidebar {
+        transform: none !important;
+        transition: none !important;
+      }
+    }
+
+    /* モーダル用 */
+    .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+    }
+  </style>
 </head>
-<body class="bg-gray-50 h-screen flex flex-col text-gray-700">
+<body class="bg-gray-50 h-screen flex flex-col text-gray-700 overflow-hidden">
 
-    <div id="toast-container">通知</div>
+  <div id="toast-container">通知メッセージ</div>
+  <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
 
-    <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
-                📝 WP Post Helper <span class="text-xs text-gray-400 font-normal mt-1">Lite</span>
-            </h1>
-            <span id="header-save-msg" class="text-sm font-bold text-[var(--theme-main)] opacity-0 transition-opacity duration-700 select-none">
-                ✅ 保存完了
-            </span>
+  <!-- ▼▼▼ 検索置換・AI整形モーダル (テーマカラー対応) ▼▼▼ -->
+  <div id="search-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+      <div class="bg-[var(--theme-soft)] p-3 border-b border-[var(--theme-border)] flex justify-between items-center shrink-0">
+        <h3 class="font-bold text-[var(--theme-main)] flex items-center gap-2">
+          🔍 検索と置換
+        </h3>
+        <button onclick="toggleSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">✕</button>
+      </div>
+      
+      <div class="overflow-y-auto p-4 space-y-4">
+        <!-- AI整形エリア -->
+        <div class="bg-[var(--theme-soft)] border border-[var(--theme-border)] rounded-xl p-3">
+            <h4 class="text-xs font-bold text-[var(--theme-main)] mb-2 uppercase tracking-wider flex items-center gap-1">
+              🤖 AI整形 <span class="text-[10px] font-normal text-gray-500">(選択した記号を一括削除)</span>
+            </h4>
+            
+            <div class="text-xs text-gray-600 mb-3 grid grid-cols-2 gap-2">
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-full-quote" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>全角 “ ”</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-half-quote" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>半角 "</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-space" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>半角スペース</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-brackets" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>カギカッコ 「」</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition col-span-2">
+                    <input type="checkbox" id="ai-target-asterisk" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>アスタリスク *</span>
+                </label>
+            </div>
+            <!-- ★変更★: ID追加, 2回押しで実行 -->
+            <button id="btn-ai-execute" onclick="performAiCleanup()" class="w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2">
+               🧹 実行する
+            </button>
+        </div>
+
+        <div class="border-t border-gray-100"></div>
+
+        <!-- 通常の検索置換 -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="flex-1">
+              <label class="block text-[10px] font-bold text-gray-400 mb-1">検索する文字</label>
+              <input type="text" id="search-term" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--theme-main)] outline-none" placeholder="例: “">
+            </div>
+            <div class="text-gray-300 text-lg pt-4">⮕</div>
+            <div class="flex-1">
+              <label class="block text-[10px] font-bold text-gray-400 mb-1">置換後 (空欄で削除)</label>
+              <input type="text" id="replace-term" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--theme-main)] outline-none" placeholder="">
+            </div>
+          </div>
+          
+          <div class="flex items-center justify-between">
+             <div class="flex items-center gap-2">
+               <input type="checkbox" id="check-subject" class="w-4 h-4 text-[var(--theme-main)] rounded focus:ring-[var(--theme-main)]">
+               <label for="check-subject" class="text-xs font-bold text-gray-500 cursor-pointer">件名も対象にする</label>
+             </div>
+             <!-- ★変更★: ID追加, 2回押しで実行 -->
+             <button id="btn-manual-replace" onclick="performManualReplace()" class="bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm">
+               すべて置換
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 bg-gray-50 border-t border-gray-100 flex justify-center shrink-0">
+        <button onclick="toggleSearchModal()" class="text-gray-400 font-bold text-xs hover:text-gray-600 transition underline">閉じる</button>
+      </div>
+    </div>
+  </div>
+  <!-- ▲▲▲ 検索置換モーダル ▲▲▲ -->
+
+  <header id="app-header" class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
+    <div class="flex min-w-0 items-center gap-2 md:gap-4 overflow-hidden flex-1">
+      <button id="mobile-menu-button" onclick="toggleSidebar()" class="md:hidden text-[var(--theme-main)] shrink-0" aria-label="メニューを開く">
+        <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+      
+      <h1 id="app-title" class="text-lg md:text-xl font-bold text-[var(--theme-main)] flex min-w-0 items-center gap-1 md:gap-2 truncate">
+        📩 <span class="hidden md:inline">MailCopy Helper</span> <span class="md:hidden truncate">MailCopy</span>
+      </h1>
+      <div id="status-msg" class="text-xs md:text-sm font-bold text-[var(--theme-main)] transition-opacity duration-700 opacity-0 ml-1 whitespace-nowrap"></div>
+      
+      <div id="char-count" class="ml-auto mr-2 text-xs md:text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+        0文字
+      </div>
+    </div>
+    
+    <div id="theme-buttons" class="flex gap-1 md:gap-2 shrink-0">
+      <button onclick="setTheme('pink')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
+      <button onclick="setTheme('blue')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 border-2 border-white shadow hover:scale-110 transition"></button>
+      <button onclick="setTheme('green')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-green-600 border-2 border-white shadow hover:scale-110 transition"></button>
+      <button onclick="setTheme('black')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition"></button>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden relative">
+    
+    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
+
+    <aside id="left-sidebar" class="fixed md:relative inset-y-0 left-0 z-40 w-4/5 md:w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+      <div class="flex border-b border-[var(--theme-border)]">
+        <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
+          📝 下書き
+        </button>
+        <button id="tab-snippets" onclick="switchTab('snippets')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
+          📌 定型文
+        </button>
+        <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
+          ⚙️ 設定
+        </button>
+        <button onclick="toggleSidebar()" class="md:hidden px-4 text-gray-400">✕</button>
+      </div>
+
+      <!-- 下書きタブのコントロール -->
+      <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
+        <div class="relative">
+          <input type="text" id="search-input" placeholder="🔍 検索... 例: 件名 / 本文 / 2026年 / 2026年6月" 
+            class="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-[var(--theme-border)] outline-none transition">
         </div>
 
         <div class="flex gap-2">
-            <button onclick="setTheme('pink')" class="w-6 h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition" title="ピンク"></button>
-            <button onclick="setTheme('black')" class="w-6 h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition" title="ブラック"></button>
+            <button onclick="createNew()" class="flex-1 bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 text-sm">
+            ＋ 新規
+            </button>
+            <!-- ★変更★: テーマカラーを適用 -->
+            <button onclick="toggleSearchModal()" class="flex-1 bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 text-sm flex justify-center items-center gap-1">
+            🔍 置換・整形
+            </button>
         </div>
-    </header>
 
-    <div class="flex flex-1 overflow-hidden">
-        <aside class="w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-colors duration-300">
-            <div class="flex border-b border-[var(--theme-border)]">
-                <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300">
-                    📝 記事下書き
-                </button>
-                <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
-                    ⚙️ 設定
-                </button>
+        <button id="btn-toggle-wp-batch-mode" onclick="toggleWpBatchSelectionMode()" class="w-full bg-white border border-blue-200 text-blue-500 font-bold py-2 px-3 rounded-xl hover:bg-blue-50 transition text-sm">
+          ☑️ まとめ投稿する
+        </button>
+
+        <div id="wp-batch-selection-controls" class="hidden bg-blue-50/60 p-3 rounded-xl border border-blue-200 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div id="selected-draft-count" class="text-xs font-bold text-gray-500">0件選択中</div>
+            <button onclick="toggleWpBatchSelectionMode(false)" class="text-xs font-bold text-gray-400 hover:text-gray-600 underline">
+              選択をやめる
+            </button>
+          </div>
+          <button id="btn-start-wp-batch" onclick="startWpBatch()" class="w-full bg-blue-50 border border-blue-200 text-blue-600 font-bold py-2 px-3 rounded-lg hover:bg-blue-100 transition text-sm">
+            選択した下書きを古い順でWordPressに投稿
+          </button>
+        </div>
+
+        <button onclick="downloadAllDraftsAsZip()" class="w-full bg-white border border-gray-300 text-gray-500 font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition text-sm flex justify-center items-center gap-2">
+          📦 Zip保存
+        </button>
+        
+        <div class="flex gap-2 pt-2 border-t border-dashed border-gray-200">
+          <button onclick="exportData()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+            📤 保存
+          </button>
+          <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+            📥 復元
+          </button>
+        </div>
+      </div>
+
+      <!-- 定型文タブのコントロール -->
+      <div id="ctrl-snippets" class="p-4 border-b border-[var(--theme-border)] bg-white hidden space-y-3">
+        <p class="text-xs text-gray-500 font-bold text-center">👇 ドラッグで並び替え（最大5つまで登録可能）</p>
+        <button onclick="createSnippet()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
+          ＋ 新しい定型文・見出しを作成
+        </button>
+      </div>
+
+      <!-- 設定タブのコントロール -->
+      <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-4">
+        
+        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
+          <label class="block text-xs font-bold text-gray-500 mb-2">🔠 基本文字サイズ (固定)</label>
+          <select id="select-font-size" onchange="changeBaseFontSize(this.value)" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+            <option value="12px">12px (小)</option>
+            <option value="14px">14px</option>
+            <option value="16px" selected>16px (標準)</option>
+            <option value="18px">18px (大)</option>
+            <option value="20px">20px (特大)</option>
+            <option value="24px">24px</option>
+          </select>
+        </div>
+
+        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-3">
+          <label class="block text-xs font-bold text-gray-500">🗂️ フォルダ管理</label>
+          <select id="select-folder-manager" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+            <option value="">フォルダを選択</option>
+          </select>
+          <div class="flex gap-2">
+            <button onclick="createFolder()" class="flex-1 bg-white border border-[var(--theme-main)] text-[var(--theme-main)] text-xs font-bold py-2 px-2 rounded-lg hover:bg-[var(--theme-soft)] transition">
+              ＋フォルダ
+            </button>
+            <button onclick="renameCurrentFolder()" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              名前変更
+            </button>
+            <button onclick="deleteCurrentFolder()" class="flex-1 bg-white border border-red-200 text-red-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-50 transition">
+              削除
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="moveCurrentFolder(-1)" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              ↑上へ
+            </button>
+            <button onclick="moveCurrentFolder(1)" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              ↓下へ
+            </button>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
+            ＋ヘッダー
+          </button>
+          <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
+            ＋フッター
+          </button>
+        </div>
+      </div>
+
+      <div id="list-container" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden bg-[var(--theme-soft)] transition-colors duration-300 w-full relative">
+      
+      <div class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-4 pb-24 md:pb-8" id="main-area">
+        
+        <div id="mode-indicator" class="hidden text-center py-2 rounded-lg font-bold text-white mb-2 shadow-sm text-sm"></div>
+
+        <div id="wp-batch-panel" class="hidden p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-blue-200">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="min-w-0">
+              <div id="wp-batch-status" class="text-xs font-bold text-blue-500 tracking-wide">WordPressまとめ投稿進行中</div>
+              <div id="wp-batch-current-subject" class="mt-1 text-sm md:text-base font-bold text-gray-700 truncate">件名</div>
             </div>
-
-            <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
-                <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
-                    ＋ 新しい記事を書く
-                </button>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="recopyCurrentWpBatchItem()" class="bg-white border border-blue-200 text-blue-600 font-bold py-2 px-3 rounded-lg hover:bg-blue-50 transition text-xs md:text-sm">
+                今の下書きを再投稿
+              </button>
+              <button onclick="advanceWpBatch(true)" class="bg-blue-500 text-white font-bold py-2 px-3 rounded-lg hover:bg-blue-600 transition text-xs md:text-sm">
+                次をすぐ投稿
+              </button>
+              <button onclick="cancelWpBatch()" class="bg-white border border-gray-300 text-gray-500 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition text-xs md:text-sm">
+                停止
+              </button>
             </div>
+          </div>
+        </div>
 
-            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-3">
-                <div class="border-t border-gray-100 pt-1">
-                    <p class="text-xs font-bold text-gray-500 mb-2">💾 データのバックアップ</p>
-                    <div class="flex gap-2">
-                        <button onclick="exportBackup()" class="flex-1 bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2 px-2 rounded-lg hover:bg-gray-100 text-sm">
-                            保存する
-                        </button>
-                        <button onclick="openBackupFilePicker()" class="flex-1 bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-2 rounded-lg hover:bg-amber-100 text-sm">
-                            復元する
-                        </button>
-                    </div>
-                    <input type="file" id="backup-file-input" accept="application/json,.json" class="hidden" onchange="importBackup(event)">
-                    <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">記事タイトル・本文・メタディスクリプションをまとめて保存します。</p>
-                </div>
-                <div class="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-800">
-                    <span class="font-bold">⚠️ データ消失にご注意ください</span><br>
-                    データはブラウザ内に保存されます。Cookie やサイトデータ削除で消える可能性があるため、必要に応じてバックアップしてください。
-                </div>
+        <div id="selector-wrapper" class="flex flex-col md:flex-row gap-2 md:gap-4 p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👑 ヘッダー</label>
+            <select id="select-header" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+              <option value="">（選択なし）</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👣 フッター</label>
+            <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-gray-400">
+              <option value="">（選択なし）</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">🗣️ 名前変換</label>
+            <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-orange-400">
+              <option value="convert">「あなた」→ {{nickname}}さん</option>
+              <option value="none">変換しない</option>
+            </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">🗂️ 保存先フォルダ</label>
+            <select id="select-draft-folder" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+              <option value="">随時</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="draft-date-wrapper" class="p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
+          <div class="flex flex-col md:flex-row md:items-end gap-3">
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">📅 下書き日付</label>
+              <input type="datetime-local" id="input-draft-date"
+                class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+              <div class="text-[11px] text-gray-400 mt-2 ml-1">この日付で年ごとのまとまりと並び順が決まります</div>
             </div>
+            <button onclick="resetDraftDateToNow()" class="shrink-0 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition">
+              今の日時に戻す
+            </button>
+          </div>
+        </div>
 
-            <div id="list-container" class="flex-1 overflow-y-auto p-4"></div>
-        </aside>
+        <div id="hf-name-wrapper" class="hidden">
+          <label class="text-sm font-bold text-gray-500">設定名 / 定型文名</label>
+          <input type="text" id="input-hf-name" 
+            class="w-full text-lg font-bold border-b-2 border-gray-200 py-1 px-1 focus:outline-none focus:border-[var(--theme-main)] bg-transparent" 
+            placeholder="名前を入力">
+        </div>
 
-        <main class="flex-1 p-8 overflow-y-auto flex flex-col gap-4 bg-[var(--theme-soft)] transition-colors duration-300">
-            <div class="bg-white/80 border-l-4 border-pink-400 p-4 rounded-r shadow-sm text-sm mb-2">
-                <div class="flex items-start gap-3">
-                    <div class="text-2xl mt-0.5">💡</div>
-                    <div class="flex-1">
-                        <p class="text-gray-700 leading-relaxed font-medium mb-1">
-                            MailCopy Helper Lite の雰囲気に寄せた、WordPress + AFFINGER 用の簡易記事ヘルパーです。
-                        </p>
-                        <p class="text-gray-500 text-xs leading-relaxed">
-                            いまは <span class="font-bold text-[var(--theme-main)]">タイトル / 本文 / メタディスクリプション</span> だけに絞っています。
-                            カテゴリー選択はあとから拡張機能側で追加する前提です。
-                        </p>
-                    </div>
-                </div>
-            </div>
+        <div id="subject-wrapper">
+          <input type="text" id="input-subject" 
+            class="w-full text-lg md:text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent" 
+            placeholder="件名を入力">
+        </div>
 
-            <div>
-                <input type="text" id="input-title"
-                    class="w-full text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent"
-                    placeholder="記事タイトルを入力">
-            </div>
+        <div class="flex-1 flex flex-col relative pb-8">
+          <div id="editor-wrapper" class="">
+            <div id="editor"></div>
+          </div>
+        </div>
+      </div>
+    </main>
 
-            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🖊️ 本文</label>
-                <div id="editor"></div>
-            </div>
+    <div id="right-sidebar" class="hidden md:flex w-48 bg-white/60 border-l border-[var(--theme-border)] p-4 flex-col backdrop-blur-sm z-10 overflow-y-auto">
+      <div class="flex flex-col gap-3 w-full pt-4">
+        <button id="btn-text-copy" onclick="copyTextOnly()" class="w-full bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          <span class="text-sm">テキスト<br>コピー</span>
+        </button>
+        <button id="btn-wp" onclick="copyBodyOnly()" class="w-full bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+          <span class="text-sm">WPに<br>コピー</span>
+        </button>
+        <button id="btn-copy" onclick="copyHtml()" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-2 rounded-xl shadow-lg transition transform hover:scale-105 flex flex-col items-center justify-center gap-1">
+          <div class="text-[10px] font-normal opacity-80">7th-mail用</div>
+          <div class="text-sm font-bold flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+            HTMLコピー
+          </div>
+        </button>
+        
+        <div class="relative w-full flex flex-col items-center mt-4 pt-4 border-t border-gray-200">
+           <button id="btn-duplicate" onclick="duplicateCurrentItem()" class="hidden w-full bg-white border-2 border-cyan-400 hover:bg-cyan-50 text-cyan-600 font-bold py-2 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2 mb-2">
+            複製
+          </button>
+          
+          <button id="btn-delete" onclick="deleteCurrentItem()" class="hidden w-full bg-white border-2 border-red-200 hover:bg-red-50 text-red-500 font-bold py-2 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+            削除
+          </button>
+          
+          <div id="action-confirm-msg" class="hidden absolute top-full mt-2 w-48 text-center font-bold text-xs bg-white p-2 rounded-lg border shadow-md animate-pulse z-20">
+             </div>
+        </div>
 
-            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🏷️ メタディスクリプション</label>
-                <textarea id="input-meta"
-                    class="w-full min-h-[120px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
-                    placeholder="AFFINGER に入れるメタディスクリプションを入力"></textarea>
-                <div class="mt-2 text-xs text-gray-400">
-                    目安: 70〜120文字くらい
-                </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="font-bold text-gray-700">プレビュー</h2>
-                    <span id="meta-count" class="text-xs font-bold text-gray-400">0文字</span>
-                </div>
-                <div class="space-y-3">
-                    <div>
-                        <div class="text-xs font-bold text-gray-400 mb-1">タイトル</div>
-                        <div id="preview-title" class="font-bold text-lg text-gray-700">(未入力)</div>
-                    </div>
-                    <div>
-                        <div class="text-xs font-bold text-gray-400 mb-1">メタディスクリプション</div>
-                        <div id="preview-meta" class="text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">(未入力)</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end items-stretch gap-3 pt-2">
-                <button onclick="copyTextOnly()" class="bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    本文をコピー
-                </button>
-
-                <button onclick="copyMetaOnly()" class="bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    メタ説明をコピー
-                </button>
-
-                <button onclick="copyHtml()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    HTMLコピー
-                </button>
-            </div>
-        </main>
+        <!-- ★追加★ クイック定型文エリア -->
+        <div id="quick-snippets-area" class="w-full mt-2 pt-2 border-t border-gray-200 hidden">
+          <div class="text-xs font-bold text-gray-400 mb-2 text-center">📌 クイック挿入</div>
+          <div id="quick-snippets-list" class="flex flex-col gap-2">
+             <!-- ここに定型文ボタンがJSで挿入されます -->
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-    <script>
-        const themes = {
-            pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
-            black: { main: '#111827', soft: '#f3f4f6', border: '#d1d5db', hover: '#374151' }
+  </div>
+
+  <!-- ★追加★ モバイル用クイック挿入バー (ツールバーの上に浮く) -->
+  <div id="mobile-quick-snippets" class="md:hidden fixed bottom-16 left-0 right-0 z-40 hidden pointer-events-none flex justify-center">
+    <div id="mobile-quick-snippets-list" class="flex gap-2 px-4 py-2 pointer-events-auto bg-white/60 backdrop-blur-md rounded-full shadow-sm border border-gray-100/50 mx-2 overflow-x-auto max-w-full">
+      <!-- JSで挿入 -->
+    </div>
+  </div>
+
+  <div id="mobile-toolbar" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex gap-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+    <button onclick="copyTextOnly()" class="flex-1 bg-white border-2 border-gray-400 text-gray-600 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+      📄 テキストコピー
+    </button>
+    <button onclick="copyBodyOnly()" id="btn-wp-mobile" class="flex-1 bg-white border-2 border-blue-400 text-blue-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+      WPコピー
+    </button>
+    <button onclick="copyHtml()" class="flex-1 bg-[var(--theme-main)] text-white font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+      📩 HTMLコピー
+    </button>
+    <button onclick="duplicateCurrentItem()" id="btn-duplicate-mobile" class="w-12 bg-cyan-50 border border-cyan-200 text-cyan-600 font-bold py-2 rounded-lg text-xs flex items-center justify-center hidden">
+      複製
+    </button>
+    <button onclick="deleteCurrentItem()" id="btn-delete-mobile" class="w-12 bg-red-50 border border-red-200 text-red-500 font-bold py-2 rounded-lg text-xs flex items-center justify-center hidden">
+      削除
+    </button>
+  </div>
+
+  <script>
+    // --- 0. テーマとフォント管理 ---
+    const themes = {
+      green: { main: '#16a34a', soft: '#ecfdf5', border: '#86efac', hover: '#15803d' },
+      pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
+      blue: { main: '#3b82f6', soft: '#eff6ff', border: '#bfdbfe', hover: '#2563eb' },
+      black: { main: '#111827', soft: '#f3f4f6', border: '#d1d5db', hover: '#374151' }
+    };
+
+    function setTheme(name) {
+      const t = themes[name];
+      const root = document.documentElement;
+      root.style.setProperty('--theme-main', t.main);
+      root.style.setProperty('--theme-soft', t.soft);
+      root.style.setProperty('--theme-border', t.border);
+      root.style.setProperty('--theme-hover', t.hover);
+      localStorage.setItem('editor-theme', name);
+    }
+
+    function changeBaseFontSize(size) {
+      document.documentElement.style.setProperty('--base-font-size', size);
+      localStorage.setItem('editor-font-size', size);
+    }
+
+    // 初期化
+    const savedTheme = localStorage.getItem('editor-theme') || 'pink';
+    setTheme(savedTheme);
+
+    const savedFontSize = localStorage.getItem('editor-font-size') || '16px';
+    document.documentElement.style.setProperty('--base-font-size', savedFontSize);
+    document.getElementById('select-font-size').value = savedFontSize;
+
+
+    // --- 1. 初期設定 ---
+    const Size = Quill.import('attributors/style/size');
+    Size.whitelist = ['10px', '11px', '12px', '13px', '14px', '16px', '18px', '20px', '24px', '36px', '40px', '48px'];
+    Quill.register(Size, true);
+
+    // ★ Undo/Redoアイコン登録
+    const icons = Quill.import("ui/icons");
+    icons["undo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>`;
+    icons["redo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>`;
+
+    const DEFAULT_FOLDER_NAME = '随時';
+    const LEGACY_DEFAULT_FOLDER_NAME = '未分類';
+    const QUICK_SNIPPET_LIMIT = 5;
+    const CUSTOM_FOLDER_GROUP_KEY = '__custom_folder_group__';
+    const YEAR_GROUP_KEY_PREFIX = '__year_group__::';
+    const WP_BATCH_TIMEOUT_MS = 180000;
+
+    // ★ Dexie DB設定: 'snippets' に order を追加
+    const db = new Dexie("MailEditorDB");
+    db.version(10).stores({ // version up
+      drafts: '++id, subject, content, sortDate, updatedAt, createdAt', 
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt' // order追加
+    });
+    db.version(11).stores({
+      drafts: '++id, folderId, subject, content, sortDate, updatedAt, createdAt',
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt',
+      folders: '++id, name, sortDate, updatedAt, createdAt'
+    }).upgrade(async tx => {
+      const folderTable = tx.table('folders');
+      const draftTable = tx.table('drafts');
+      const legacyDefaultFolder = await folderTable
+        .where('name')
+        .equals(LEGACY_DEFAULT_FOLDER_NAME)
+        .first();
+
+      if (legacyDefaultFolder) {
+        await folderTable.update(legacyDefaultFolder.id, {
+          name: DEFAULT_FOLDER_NAME
+        });
+      }
+
+      let defaultFolderId = await folderTable
+        .where('name')
+        .equals(DEFAULT_FOLDER_NAME)
+        .first()
+        .then(folder => folder?.id);
+
+      if (!defaultFolderId) {
+        defaultFolderId = await folderTable.add({
+          name: DEFAULT_FOLDER_NAME,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toLocaleString('ja-JP'),
+          sortDate: new Date().toISOString()
+        });
+      }
+
+      await draftTable.toCollection().modify(draft => {
+        if (draft.folderId === undefined || draft.folderId === null || draft.folderId === '') {
+          draft.folderId = defaultFolderId;
+        }
+      });
+    });
+    db.version(12).stores({
+      drafts: '++id, folderId, subject, content, sortDate, updatedAt, createdAt',
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt',
+      folders: '++id, name, order, sortDate, updatedAt, createdAt'
+    }).upgrade(async tx => {
+      const folderTable = tx.table('folders');
+      const folders = await folderTable.toArray();
+      const customFolders = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+
+      for (let i = 0; i < customFolders.length; i += 1) {
+        await folderTable.update(customFolders[i].id, {
+          order: i + 1
+        });
+      }
+    });
+
+    // --- 2. エディター設定 ---
+    function imageHandler() {
+      const range = this.quill.getSelection();
+      const value = prompt('画像のURLを入力してください:');
+      if(value) this.quill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+    }
+
+    function normalizePastedUrl(text) {
+      if (!text) return null;
+      const trimmed = text.trim();
+      if (!trimmed || /\s/.test(trimmed)) return null;
+
+      try {
+        const url = new URL(trimmed);
+        if (['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) {
+          return url.toString();
+        }
+      } catch (e) {
+        if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) {
+          return `https://${trimmed}`;
+        }
+      }
+
+      return null;
+    }
+
+    function isImageUrl(urlText) {
+      if (!urlText) return false;
+
+      try {
+        const url = new URL(urlText);
+        const pathname = (url.pathname || '').toLowerCase();
+        return /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|tiff?|heic|heif)$/i.test(pathname);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      modules: {
+        imageResize: { displaySize: true },
+        // ★Historyモジュール有効化
+        history: { delay: 1000, maxStack: 500, userOnly: true },
+        toolbar: {
+          container: [
+            [{ 'size': Size.whitelist }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'align': [] }, { 'indent': '-1'}, { 'indent': '+1' }],
+            [{ 'header': 1 }, { 'header': 2 }, 'blockquote'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            ['link', 'image', 'clean'],
+            ['undo', 'redo'] // ★ツールバーに追加
+          ],
+          handlers: { 
+            'image': imageHandler,
+            'undo': function() { this.quill.history.undo(); },
+            'redo': function() { this.quill.history.redo(); }
+          }
+        }
+      }
+    });
+
+    quill.root.addEventListener('paste', function(e) {
+      const range = quill.getSelection(true);
+      const pastedText = e.clipboardData?.getData('text/plain') || '';
+      const normalizedUrl = normalizePastedUrl(pastedText);
+      if (!range || !normalizedUrl) return;
+
+      if (range.length === 0 && isImageUrl(normalizedUrl)) {
+        e.preventDefault();
+        quill.insertEmbed(range.index, 'image', normalizedUrl, Quill.sources.USER);
+        quill.setSelection(range.index + 1, 0, Quill.sources.SILENT);
+        showToast('🖼️ 画像を貼り付けました');
+        return;
+      }
+
+      if (range.length === 0) return;
+
+      e.preventDefault();
+      quill.formatText(range.index, range.length, 'link', normalizedUrl, Quill.sources.USER);
+      quill.setSelection(range.index + range.length, 0, Quill.sources.SILENT);
+      showToast('🔗 選択文字にリンクを設定しました');
+    }, true);
+
+    setTimeout(() => {
+      const sizeLabels = {
+        '10px': '10px', '11px': '11px', '12px': '12px', '13px': '13px', 
+        '14px': '14px', '16px': '16px (標準)', '18px': '18px', '20px': '20px',
+        '24px': '24px (大)', '36px': '36px', '40px': '40px (特大)', '48px': '48px'
+      };
+      const picker = document.querySelector('.ql-size .ql-picker-options');
+      if(picker) {
+        picker.querySelectorAll('span').forEach(span => {
+          const val = span.getAttribute('data-value');
+          if(sizeLabels[val]) span.textContent = sizeLabels[val];
+        });
+      }
+      const label = document.querySelector('.ql-size .ql-picker-label');
+      if(label) label.setAttribute('data-value', '16px');
+    }, 500);
+
+    // --- 3. 変数 & 変更検知用Snapshot ---
+    let currentId = null;
+    let activeTab = 'drafts'; 
+    let editMode = 'draft'; // 'draft' | 'header' | 'footer' | 'snippet'
+    let currentDraftFolderId = null;
+    let isWpBatchSelectionMode = false;
+    let selectedDraftIds = new Set();
+    let wpBatchQueue = [];
+    let wpBatchIndex = -1;
+    let wpBatchTimer = null;
+    let wpBatchPosting = false;
+    let autoSaveTimer = null;
+    let deletePending = false; 
+    let duplicatePending = false; 
+    let isFolderSortDragging = false;
+    
+    // ★★★ キャッシュ用変数 (ここが重要！) ★★★
+    let cachedHeaderContent = '';
+    let cachedFooterContent = '';
+    
+    let lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
+    
+    // ★追加★ モーダル内のアクション確認状態
+    let aiCleanupPending = false;
+    let manualReplacePending = false;
+
+    // --- 4. トースト通知 ---
+    function showToast(message) {
+      const toast = document.getElementById('toast-container');
+      toast.innerHTML = message; // HTMLタグ許可
+      toast.classList.add('show');
+      if (window.toastTimer) clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // --- 5. UI状態リセット ---
+    function resetActionStates() {
+      deletePending = false;
+      duplicatePending = false;
+
+      const msg = document.getElementById('action-confirm-msg');
+      msg.classList.add('hidden');
+      msg.className = "hidden absolute top-full mt-2 w-48 text-center font-bold text-xs bg-white p-2 rounded-lg border shadow-md animate-pulse z-20"; 
+
+      const btnDel = document.getElementById('btn-delete');
+      const btnDelMob = document.getElementById('btn-delete-mobile');
+      btnDel.classList.remove('bg-red-50', 'border-red-400');
+      btnDelMob.classList.remove('bg-red-500', 'text-white');
+      btnDelMob.textContent = '削除';
+
+      const btnDup = document.getElementById('btn-duplicate');
+      const btnDupMob = document.getElementById('btn-duplicate-mobile');
+      btnDup.classList.remove('bg-cyan-100', 'border-cyan-500');
+      btnDup.textContent = '複製';
+      btnDupMob.classList.remove('bg-cyan-500', 'text-white');
+      btnDupMob.textContent = '複製';
+    }
+
+    // --- 6. タブ切り替え ---
+    async function switchTab(tabName) {
+      const oldTab = activeTab;
+      activeTab = tabName;
+      resetActionStates(); 
+
+      // ボタン定義
+      const btnDrafts = document.getElementById('tab-drafts');
+      const btnSnippets = document.getElementById('tab-snippets');
+      const btnSettings = document.getElementById('tab-settings');
+      
+      const ctrlDrafts = document.getElementById('ctrl-drafts');
+      const ctrlSnippets = document.getElementById('ctrl-snippets');
+      const ctrlSettings = document.getElementById('ctrl-settings');
+      const listContainer = document.getElementById('list-container');
+
+      // クラス初期化
+      const activeClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-active text-sm md:text-base";
+      const inactiveClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive text-sm md:text-base";
+
+      btnDrafts.className = inactiveClass;
+      btnSnippets.className = inactiveClass;
+      btnSettings.className = inactiveClass;
+      listContainer.classList.remove('settings-scroll-fix');
+      
+      ctrlDrafts.classList.add('hidden');
+      ctrlSnippets.classList.add('hidden');
+      ctrlSettings.classList.add('hidden');
+
+      if(tabName === 'drafts') {
+        btnDrafts.className = activeClass;
+        ctrlDrafts.classList.remove('hidden');
+        loadQuickSnippets();
+        if(editMode !== 'draft') {
+            // 他のモードから戻ってきたらリスト再ロード。Draftモードならそのまま
+             loadDraftList();
+        } else {
+             loadDraftList();
+        }
+      } 
+      else if(tabName === 'snippets') {
+        btnSnippets.className = activeClass;
+        ctrlSnippets.classList.remove('hidden');
+        loadSnippetList();
+      } 
+      else {
+        btnSettings.className = activeClass;
+        ctrlSettings.classList.remove('hidden');
+        listContainer.classList.add('settings-scroll-fix');
+        loadSettingsList();
+      }
+    }
+
+    // --- 7. リスト描画 ---
+    function formatDate(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const day = d.getDate();
+      const hour = d.getHours().toString().padStart(2, '0');
+      const min = d.getMinutes().toString().padStart(2, '0');
+      return `${year}/${month}/${day} ${hour}:${min}`;
+    }
+
+    function formatYearLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}年`;
+    }
+
+    function formatYearMonthLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      return `${year}年${month}月`;
+    }
+
+    function formatMonthLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getMonth() + 1}月`;
+    }
+
+    function getYearKey(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}`;
+    }
+
+    function getYearMonthKey(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      return `${year}-${month}`;
+    }
+
+    function buildDateSearchText(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const monthPadded = month.toString().padStart(2, '0');
+
+      return [
+        `${year}`,
+        `${year}年`,
+        `${year}/${monthPadded}`,
+        `${year}/${month}`,
+        `${year}-${monthPadded}`,
+        `${year}-${month}`,
+        `${year}${monthPadded}`,
+        `${year}${month}`,
+        `${year}年${month}月`,
+        `${year}年${monthPadded}月`
+      ].join(' ').toLowerCase().replace(/\s+/g, '');
+    }
+
+    function toDatetimeLocalValue(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      const hour = d.getHours().toString().padStart(2, '0');
+      const min = d.getMinutes().toString().padStart(2, '0');
+      return `${year}-${month}-${day}T${hour}:${min}`;
+    }
+
+    function getDraftDateIso() {
+      const input = document.getElementById('input-draft-date');
+      const value = input?.value;
+      if (!value) return new Date().toISOString();
+
+      const draftDate = new Date(value);
+      if (Number.isNaN(draftDate.getTime())) {
+        return new Date().toISOString();
+      }
+
+      return draftDate.toISOString();
+    }
+
+    function setDraftDateValue(isoStr) {
+      const input = document.getElementById('input-draft-date');
+      if (!input) return;
+      input.value = toDatetimeLocalValue(isoStr || new Date().toISOString());
+    }
+
+    function resetDraftDateToNow() {
+      setDraftDateValue(new Date().toISOString());
+      if (editMode === 'draft') {
+        triggerSave();
+      }
+    }
+
+    function sortByCreatedAt(list) {
+      return list.sort((a, b) => {
+        const dateA = a.createdAt || a.sortDate || '';
+        const dateB = b.createdAt || b.sortDate || '';
+        return dateA < dateB ? 1 : -1; 
+      });
+    }
+
+    function sortByCreatedAtOldestFirst(list) {
+      return list.sort((a, b) => {
+        const dateA = a.createdAt || a.sortDate || '';
+        const dateB = b.createdAt || b.sortDate || '';
+        return dateA > dateB ? 1 : -1;
+      });
+    }
+
+    function getSelectedDraftCount() {
+      return selectedDraftIds.size;
+    }
+
+    function isWpBatchActive() {
+      return wpBatchQueue.length > 0 && wpBatchIndex >= 0;
+    }
+
+    function clearWpBatchTimer() {
+      if (wpBatchTimer) {
+        clearTimeout(wpBatchTimer);
+        wpBatchTimer = null;
+      }
+    }
+
+    function updateSelectedDraftCountUI() {
+      const countEl = document.getElementById('selected-draft-count');
+      const startBtn = document.getElementById('btn-start-wp-batch');
+      if (countEl) {
+        countEl.textContent = `${getSelectedDraftCount()}件選択中`;
+      }
+      if (startBtn) {
+        startBtn.disabled = getSelectedDraftCount() === 0;
+        startBtn.classList.toggle('opacity-50', getSelectedDraftCount() === 0);
+        startBtn.classList.toggle('cursor-not-allowed', getSelectedDraftCount() === 0);
+      }
+    }
+
+    function updateWpBatchSelectionModeUI() {
+      const toggleBtn = document.getElementById('btn-toggle-wp-batch-mode');
+      const controls = document.getElementById('wp-batch-selection-controls');
+      const batchActive = isWpBatchActive();
+      if (toggleBtn) {
+        toggleBtn.classList.toggle('hidden', isWpBatchSelectionMode || batchActive);
+      }
+      if (controls) {
+        controls.classList.toggle('hidden', !isWpBatchSelectionMode || batchActive);
+      }
+    }
+
+    function toggleWpBatchSelectionMode(forceState) {
+      isWpBatchSelectionMode = typeof forceState === 'boolean'
+        ? forceState
+        : !isWpBatchSelectionMode;
+
+      if (!isWpBatchSelectionMode) {
+        selectedDraftIds.clear();
+        updateSelectedDraftCountUI();
+      }
+
+      updateWpBatchSelectionModeUI();
+      if (activeTab === 'drafts') {
+        loadDraftList();
+      }
+    }
+
+    function updateWpBatchPanel() {
+      const panel = document.getElementById('wp-batch-panel');
+      const statusEl = document.getElementById('wp-batch-status');
+      const subjectEl = document.getElementById('wp-batch-current-subject');
+
+      updateWpBatchSelectionModeUI();
+      if (!panel || !statusEl || !subjectEl) return;
+
+      if (!isWpBatchActive()) {
+        panel.classList.add('hidden');
+        return;
+      }
+
+      const currentQueueId = wpBatchQueue[wpBatchIndex];
+      panel.classList.remove('hidden');
+      statusEl.textContent = `${wpBatchIndex + 1} / ${wpBatchQueue.length} 件目をWordPressへ投稿中`;
+
+      if (currentId && String(currentId) === String(currentQueueId)) {
+        const subject = document.getElementById('input-subject').value || '(無題)';
+        subjectEl.textContent = subject;
+      } else {
+        subjectEl.textContent = '下書きを読み込み中...';
+      }
+    }
+
+    function setDraftSelected(id, checked) {
+      const key = String(id);
+      if (checked) selectedDraftIds.add(key);
+      else selectedDraftIds.delete(key);
+      updateSelectedDraftCountUI();
+    }
+
+    function setDraftsSelected(ids, checked) {
+      ids.forEach(id => {
+        const key = String(id);
+        if (checked) selectedDraftIds.add(key);
+        else selectedDraftIds.delete(key);
+      });
+      updateSelectedDraftCountUI();
+      if (activeTab === 'drafts') {
+        loadDraftList();
+      }
+    }
+
+    function clearSelectedDrafts() {
+      selectedDraftIds.clear();
+      updateSelectedDraftCountUI();
+      if (activeTab === 'drafts') {
+        loadDraftList();
+      }
+    }
+
+    function removeDraftFromBatchQueue(id) {
+      const key = String(id);
+      const currentQueueId = wpBatchQueue[wpBatchIndex];
+      wpBatchQueue = wpBatchQueue.filter(queueId => String(queueId) !== key);
+      if (wpBatchQueue.length === 0) {
+        wpBatchIndex = -1;
+      } else if (String(currentQueueId) !== key) {
+        wpBatchIndex = wpBatchQueue.findIndex(queueId => String(queueId) === String(currentQueueId));
+      } else {
+        wpBatchIndex = Math.max(-1, wpBatchIndex - 1);
+      }
+      updateWpBatchPanel();
+    }
+
+    function getFolderOrderValue(folder) {
+      const order = Number(folder?.order);
+      return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
+    }
+
+    function sortFoldersForDisplay(list) {
+      return list.sort((a, b) => {
+        if (a.name === DEFAULT_FOLDER_NAME) return 1;
+        if (b.name === DEFAULT_FOLDER_NAME) return -1;
+        const orderDiff = getFolderOrderValue(a) - getFolderOrderValue(b);
+        if (orderDiff !== 0) return orderDiff;
+        return (a.name || '').localeCompare(b.name || '', 'ja');
+      });
+    }
+
+    async function ensureFolderOrders() {
+      const folders = await db.folders.toArray();
+      const customFolders = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .sort((a, b) => {
+          const orderDiff = getFolderOrderValue(a) - getFolderOrderValue(b);
+          if (orderDiff !== 0) return orderDiff;
+          return (a.name || '').localeCompare(b.name || '', 'ja');
+        });
+
+      const updates = [];
+      customFolders.forEach((folder, index) => {
+        const nextOrder = index + 1;
+        if (folder.order !== nextOrder) {
+          updates.push({ id: folder.id, order: nextOrder });
+          folder.order = nextOrder;
+        }
+      });
+
+      if (updates.length > 0) {
+        await db.transaction('rw', db.folders, async () => {
+          for (const update of updates) {
+            await db.folders.update(update.id, { order: update.order });
+          }
+        });
+      }
+
+      return folders;
+    }
+
+    function getCollapsedFolderIds() {
+      try {
+        const raw = localStorage.getItem('mail_helper_collapsed_folders');
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function setCollapsedFolderIds(ids) {
+      localStorage.setItem('mail_helper_collapsed_folders', JSON.stringify(ids));
+    }
+
+    function isFolderCollapsed(folder) {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(String(folder.id));
+    }
+
+    function isCustomFolderGroupCollapsed() {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(CUSTOM_FOLDER_GROUP_KEY);
+    }
+
+    function getYearGroupCollapseKey(folderId, yearKey) {
+      return `${YEAR_GROUP_KEY_PREFIX}${folderId}::${yearKey}`;
+    }
+
+    function isYearGroupCollapsed(folderId, yearKey) {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(getYearGroupCollapseKey(folderId, yearKey));
+    }
+
+    function toggleFolderCollapse(folderId) {
+      const collapsedIds = getCollapsedFolderIds();
+      const key = String(folderId);
+      const nextIds = collapsedIds.includes(key)
+        ? collapsedIds.filter(id => id !== key)
+        : [...collapsedIds, key];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function toggleCustomFolderGroupCollapse() {
+      const collapsedIds = getCollapsedFolderIds();
+      const nextIds = collapsedIds.includes(CUSTOM_FOLDER_GROUP_KEY)
+        ? collapsedIds.filter(id => id !== CUSTOM_FOLDER_GROUP_KEY)
+        : [...collapsedIds, CUSTOM_FOLDER_GROUP_KEY];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function toggleYearGroupCollapse(folderId, yearKey) {
+      const collapsedIds = getCollapsedFolderIds();
+      const key = getYearGroupCollapseKey(folderId, yearKey);
+      const nextIds = collapsedIds.includes(key)
+        ? collapsedIds.filter(id => id !== key)
+        : [...collapsedIds, key];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function renderDraftFolderSection(listEl, folder, folderDrafts, collapsed, options = {}) {
+      const {
+        headerMarginClass = 'mt-3',
+        headerIndentClass = '',
+        itemIndentClass = 'ml-6',
+        yearIndentClass = 'ml-3',
+        monthIndentClass = 'ml-6',
+        emptyClass = 'px-3 py-3 text-xs text-gray-400',
+        forceExpand = false,
+        plainHeader = false
+      } = options;
+
+      const folderHeader = document.createElement('div');
+      folderHeader.className = [plainHeader ? 'default-folder-header' : 'folder-group-header', headerMarginClass, headerIndentClass, collapsed ? 'collapsed' : '']
+        .filter(Boolean)
+        .join(' ');
+      folderHeader.innerHTML = `
+        <div class="flex min-w-0 flex-1 items-center gap-2 ${plainHeader ? '' : 'overflow-hidden'}">
+          <span class="shrink-0 text-sm">${collapsed ? '▶' : '▼'}</span>
+          <span class="shrink-0 text-lg">🗂️</span>
+          <span class="${plainHeader ? '' : 'block truncate'}">${folder.name}</span>
+        </div>
+        <div class="${plainHeader ? 'shrink-0 text-[11px] text-gray-400' : 'shrink-0 text-xs bg-white/80 px-2 py-1 rounded-full border border-[var(--theme-border)]'}">${folderDrafts.length}件</div>
+      `;
+      folderHeader.onclick = () => toggleFolderCollapse(folder.id);
+      listEl.appendChild(folderHeader);
+
+      if (collapsed) {
+        return;
+      }
+
+      if (folderDrafts.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = emptyClass;
+        empty.textContent = 'このフォルダに下書きはありません';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      const yearGroups = new Map();
+
+      folderDrafts.forEach(item => {
+        const targetDate = item.createdAt || item.sortDate;
+        const yearKey = getYearKey(targetDate) || 'unknown';
+        if (!yearGroups.has(yearKey)) {
+          yearGroups.set(yearKey, {
+            label: formatYearLabel(targetDate) || '日付未設定',
+            items: []
+          });
+        }
+        yearGroups.get(yearKey).items.push(item);
+      });
+
+      yearGroups.forEach((group, yearKey) => {
+        const yearCollapsed = forceExpand ? false : isYearGroupCollapsed(folder.id, yearKey);
+        const yearHeader = document.createElement('div');
+        yearHeader.className = `year-group-header ${yearIndentClass} ${yearCollapsed ? 'collapsed' : ''}`;
+        yearHeader.innerHTML = `
+          <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <span class="shrink-0 text-xs">${yearCollapsed ? '▶' : '▼'}</span>
+            <span class="block truncate">${group.label}</span>
+          </div>
+          <div class="shrink-0 text-[11px] text-gray-400">${group.items.length}件</div>
+        `;
+        yearHeader.onclick = () => toggleYearGroupCollapse(folder.id, yearKey);
+        listEl.appendChild(yearHeader);
+
+        if (yearCollapsed) {
+          return;
+        }
+
+        let lastMonthKey = '';
+
+        group.items.forEach(item => {
+          const targetDate = item.createdAt || item.sortDate;
+          const currentMonthKey = getYearMonthKey(targetDate);
+
+          if (currentMonthKey && currentMonthKey !== lastMonthKey) {
+            const monthHeader = document.createElement('div');
+            monthHeader.className = `month-header ${monthIndentClass} flex items-center justify-between gap-2`;
+
+            const monthLabel = formatMonthLabel(targetDate);
+            const label = document.createElement('span');
+            label.textContent = monthLabel;
+            monthHeader.appendChild(label);
+
+            if (isWpBatchSelectionMode) {
+              const monthItems = group.items.filter(monthItem => {
+                const monthDate = monthItem.createdAt || monthItem.sortDate;
+                return getYearMonthKey(monthDate) === currentMonthKey;
+              });
+              const allSelected = monthItems.length > 0 && monthItems.every(monthItem => selectedDraftIds.has(String(monthItem.id)));
+              const selectMonthBtn = document.createElement('button');
+              selectMonthBtn.type = 'button';
+              selectMonthBtn.className = 'shrink-0 rounded-full border border-blue-200 bg-white px-2 py-1 text-[10px] font-bold text-blue-500 hover:bg-blue-50 transition';
+              selectMonthBtn.textContent = allSelected ? `${monthLabel}を解除` : `${monthLabel}を一括選択`;
+              selectMonthBtn.onclick = event => {
+                event.stopPropagation();
+                setDraftsSelected(monthItems.map(monthItem => monthItem.id), !allSelected);
+              };
+              monthHeader.appendChild(selectMonthBtn);
+            }
+
+            listEl.appendChild(monthHeader);
+            lastMonthKey = currentMonthKey;
+          }
+
+          const div = document.createElement('div');
+          const isSelected = (editMode === 'draft' && currentId === item.id);
+          const isChecked = selectedDraftIds.has(String(item.id));
+          div.className = `nav-item ${itemIndentClass} ${isSelected ? 'selected' : ''} ${isWpBatchSelectionMode && isChecked ? 'draft-batch-selected' : ''}`;
+
+          const dateStr = formatDate(targetDate);
+
+          const checkboxHtml = isWpBatchSelectionMode ? `
+            <label class="shrink-0 flex items-center px-1 cursor-pointer" title="まとめWP用に選択">
+              <input type="checkbox" class="draft-select-checkbox w-4 h-4 text-[var(--theme-main)] rounded focus:ring-[var(--theme-main)]" ${isChecked ? 'checked' : ''}>
+            </label>` : '';
+
+          div.innerHTML = `
+            ${checkboxHtml}
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-gray-700 truncate">${item.subject || '(無題)'}</div>
+              <div class="text-xs text-gray-400 mt-1">${dateStr}</div>
+            </div>
+          `;
+          const checkbox = div.querySelector('.draft-select-checkbox');
+          if (checkbox) {
+            checkbox.addEventListener('click', e => e.stopPropagation());
+            checkbox.addEventListener('change', e => {
+              setDraftSelected(item.id, e.target.checked);
+              div.classList.toggle('draft-batch-selected', e.target.checked);
+            });
+          }
+          div.onclick = () => {
+            loadDraft(item.id);
+            if(window.innerWidth < 768) toggleSidebar();
+          };
+          listEl.appendChild(div);
+        });
+      });
+    }
+
+    async function ensureDefaultFolder() {
+      let folder = await db.folders.where('name').equals(DEFAULT_FOLDER_NAME).first();
+      const legacyFolder = await db.folders.where('name').equals(LEGACY_DEFAULT_FOLDER_NAME).first();
+
+      if (!folder && legacyFolder) {
+        await db.folders.update(legacyFolder.id, {
+          name: DEFAULT_FOLDER_NAME
+        });
+        folder = await db.folders.get(legacyFolder.id);
+      }
+
+      if (!folder) {
+        const now = new Date();
+        const id = await db.folders.add({
+          name: DEFAULT_FOLDER_NAME,
+          createdAt: now.toISOString(),
+          updatedAt: now.toLocaleString('ja-JP'),
+          sortDate: now.toISOString()
+        });
+        folder = await db.folders.get(id);
+      }
+
+      await db.drafts.toCollection().modify(draft => {
+        if (draft.folderId === undefined || draft.folderId === null || draft.folderId === '') {
+          draft.folderId = folder.id;
+        }
+      });
+
+      return folder;
+    }
+
+    async function loadFolderDropdowns() {
+      const defaultFolder = await ensureDefaultFolder();
+      let folders = await ensureFolderOrders();
+      folders = sortFoldersForDisplay(folders);
+
+      const editSelect = document.getElementById('select-draft-folder');
+      const managerSelect = document.getElementById('select-folder-manager');
+      const currentEdit = currentDraftFolderId;
+      const currentManager = managerSelect.value;
+
+      editSelect.innerHTML = '';
+      managerSelect.innerHTML = '<option value="">フォルダを選択</option>';
+
+      folders.forEach(folder => {
+        const editOption = document.createElement('option');
+        editOption.value = folder.id;
+        editOption.textContent = folder.name;
+        editSelect.appendChild(editOption);
+
+        const managerOption = document.createElement('option');
+        managerOption.value = folder.id;
+        managerOption.textContent = folder.name;
+        managerSelect.appendChild(managerOption);
+      });
+
+      if (currentManager && folders.some(folder => String(folder.id) === String(currentManager))) {
+        managerSelect.value = currentManager;
+      }
+
+      if (currentEdit && folders.some(folder => String(folder.id) === String(currentEdit))) {
+        editSelect.value = currentEdit;
+      } else {
+        currentDraftFolderId = defaultFolder.id;
+        editSelect.value = defaultFolder.id;
+      }
+    }
+
+    async function createFolder() {
+      const name = prompt('新しいフォルダ名を入力してください');
+      if (!name) return;
+
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast('⚠️ フォルダ名を入力してください');
+        return;
+      }
+
+      const exists = await db.folders.where('name').equals(trimmed).first();
+      if (exists) {
+        showToast('⚠️ 同じ名前のフォルダがあります');
+        return;
+      }
+
+      const now = new Date();
+      const folders = await ensureFolderOrders();
+      const nextOrder = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .reduce((max, folder) => Math.max(max, getFolderOrderValue(folder)), 0) + 1;
+      const id = await db.folders.add({
+        name: trimmed,
+        order: nextOrder,
+        createdAt: now.toISOString(),
+        updatedAt: now.toLocaleString('ja-JP'),
+        sortDate: now.toISOString()
+      });
+
+      const collapsedIds = getCollapsedFolderIds().filter(key => key !== CUSTOM_FOLDER_GROUP_KEY);
+      setCollapsedFolderIds([...collapsedIds, String(id)]);
+      currentDraftFolderId = id;
+      await loadFolderDropdowns();
+      await refreshSidebarAfterFolderChange();
+      showToast(`🗂️ 「${trimmed}」を作成しました`);
+    }
+
+    async function refreshSidebarAfterFolderChange() {
+      if (activeTab === 'settings') {
+        await loadSettingsList();
+        return;
+      }
+
+      if (activeTab === 'drafts') {
+        await loadDraftList();
+      }
+    }
+
+    async function moveCurrentFolder(direction) {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ 並べ替えるフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue, 10);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダは移動できません');
+        return;
+      }
+
+      const folders = sortFoldersForDisplay(await ensureFolderOrders());
+      const customFolders = folders.filter(item => item.name !== DEFAULT_FOLDER_NAME);
+      const currentIndex = customFolders.findIndex(item => String(item.id) === String(folderId));
+      const targetIndex = currentIndex + direction;
+
+      if (currentIndex === -1) return;
+      if (targetIndex < 0 || targetIndex >= customFolders.length) {
+        showToast(direction < 0 ? '⚠️ これ以上上へは移動できません' : '⚠️ これ以上下へは移動できません');
+        return;
+      }
+
+      const targetFolder = customFolders[targetIndex];
+
+      await db.transaction('rw', db.folders, async () => {
+        await db.folders.update(folder.id, { order: targetFolder.order });
+        await db.folders.update(targetFolder.id, { order: folder.order });
+      });
+
+      await loadFolderDropdowns();
+      document.getElementById('select-folder-manager').value = folder.id;
+      await refreshSidebarAfterFolderChange();
+      showToast(direction < 0 ? '⬆️ フォルダを上へ移動しました' : '⬇️ フォルダを下へ移動しました');
+    }
+
+    async function renameCurrentFolder() {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ まず変更したいフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダの名前は変更できません');
+        return;
+      }
+
+      const nextName = prompt('新しいフォルダ名を入力してください', folder.name);
+      if (!nextName) return;
+      const trimmed = nextName.trim();
+      if (!trimmed) {
+        showToast('⚠️ フォルダ名を入力してください');
+        return;
+      }
+
+      const duplicate = await db.folders.where('name').equals(trimmed).first();
+      if (duplicate && duplicate.id !== folderId) {
+        showToast('⚠️ 同じ名前のフォルダがあります');
+        return;
+      }
+
+      await db.folders.update(folderId, {
+        name: trimmed,
+        updatedAt: new Date().toLocaleString('ja-JP'),
+        sortDate: new Date().toISOString()
+      });
+      await loadFolderDropdowns();
+      await refreshSidebarAfterFolderChange();
+      showToast('✏️ フォルダ名を変更しました');
+    }
+
+    async function deleteCurrentFolder() {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ 削除するフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダは削除できません');
+        return;
+      }
+
+      if (!confirm(`「${folder.name}」を削除しますか？\n中の下書きは随時へ移動します。`)) return;
+
+      const defaultFolder = await ensureDefaultFolder();
+      await db.transaction('rw', db.folders, db.drafts, async () => {
+        await db.drafts.where('folderId').equals(folderId).modify(draft => {
+          draft.folderId = defaultFolder.id;
+        });
+        await db.folders.delete(folderId);
+      });
+
+      if (String(currentDraftFolderId) === String(folderId)) {
+        currentDraftFolderId = defaultFolder.id;
+      }
+      await loadFolderDropdowns();
+      await refreshSidebarAfterFolderChange();
+      showToast('🗑️ フォルダを削除しました');
+    }
+
+    async function loadDraftList() {
+      await loadFolderDropdowns();
+
+      let keyword = document.getElementById('search-input').value.toLowerCase().trim();
+      const safeKeyword = keyword.replace(/\s+/g, '');
+      const folders = await ensureFolderOrders();
+
+      let drafts = await db.drafts.toArray();
+      drafts = sortByCreatedAt(drafts);
+      
+      if (safeKeyword) {
+        drafts = drafts.filter(d => {
+          const tmpDiv = document.createElement('div');
+          tmpDiv.innerHTML = d.content;
+          const bodyText = (tmpDiv.textContent || tmpDiv.innerText || '').toLowerCase().replace(/\s+/g, '');
+          const subj = (d.subject || '').toLowerCase().replace(/\s+/g, '');
+          const dateText = buildDateSearchText(d.createdAt || d.sortDate);
+          return subj.includes(safeKeyword) || bodyText.includes(safeKeyword) || dateText.includes(safeKeyword);
+        });
+      }
+
+      const listEl = document.getElementById('list-container');
+      listEl.innerHTML = '';
+
+      if (drafts.length === 0 && safeKeyword) {
+        listEl.innerHTML = `<div class="p-4 text-sm text-gray-400 text-center">該当なし</div>`;
+        updateDropdowns();
+        updateSelectedDraftCountUI();
+        updateWpBatchPanel();
+        return;
+      }
+
+      sortFoldersForDisplay(folders);
+
+      const defaultFolder = folders.find(folder => folder.name === DEFAULT_FOLDER_NAME);
+      const customFolders = folders.filter(folder => folder.name !== DEFAULT_FOLDER_NAME);
+      const visibleCustomFolders = safeKeyword
+        ? customFolders.filter(folder => drafts.some(d => String(d.folderId) === String(folder.id)))
+        : customFolders;
+
+      const customGroupHeader = document.createElement('div');
+      const customGroupCollapsed = safeKeyword ? false : isCustomFolderGroupCollapsed();
+      customGroupHeader.className = `folder-group-header mt-3 ${customGroupCollapsed ? 'collapsed' : ''}`;
+      customGroupHeader.innerHTML = `
+        <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span class="shrink-0 text-sm">${customGroupCollapsed ? '▶' : '▼'}</span>
+          <span class="shrink-0 text-lg">🗂️</span>
+          <span class="block truncate">フォルダ</span>
+        </div>
+      `;
+      customGroupHeader.onclick = () => toggleCustomFolderGroupCollapse();
+      listEl.appendChild(customGroupHeader);
+
+      if (!customGroupCollapsed) {
+        if (visibleCustomFolders.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'pl-6 py-3 text-xs text-gray-400';
+          empty.textContent = safeKeyword ? '該当するフォルダはありません' : '作成したフォルダはまだありません';
+          listEl.appendChild(empty);
+        } else {
+          visibleCustomFolders.forEach(folder => {
+            const folderDrafts = drafts.filter(d => String(d.folderId) === String(folder.id));
+            const collapsed = safeKeyword ? false : isFolderCollapsed(folder);
+            renderDraftFolderSection(listEl, folder, folderDrafts, collapsed, {
+              headerMarginClass: 'mt-2',
+              headerIndentClass: 'ml-3',
+              itemIndentClass: 'ml-6',
+              yearIndentClass: 'ml-6',
+              monthIndentClass: 'ml-6',
+              emptyClass: 'pl-6 py-3 text-xs text-gray-400',
+              forceExpand: safeKeyword
+            });
+          });
+        }
+      }
+
+      if (defaultFolder) {
+        const defaultDrafts = drafts.filter(d => String(d.folderId) === String(defaultFolder.id));
+        if (!safeKeyword || defaultDrafts.length > 0) {
+          const collapsed = safeKeyword ? false : isFolderCollapsed(defaultFolder);
+          renderDraftFolderSection(listEl, defaultFolder, defaultDrafts, collapsed, {
+            forceExpand: safeKeyword,
+            plainHeader: true
+          });
+        }
+      }
+      updateDropdowns();
+      updateSelectedDraftCountUI();
+      updateWpBatchSelectionModeUI();
+      updateWpBatchPanel();
+    }
+
+    async function loadSettingsList() {
+      const folders = await ensureFolderOrders();
+      const drafts = await db.drafts.toArray();
+      let headers = await db.headers.toArray();
+      let footers = await db.footers.toArray();
+      
+      sortFoldersForDisplay(folders);
+      headers = sortByCreatedAt(headers);
+      footers = sortByCreatedAt(footers);
+
+      const listEl = document.getElementById('list-container');
+      listEl.innerHTML = '';
+
+      const folderSection = document.createElement('div');
+      folderSection.className = 'settings-list-section';
+      listEl.appendChild(folderSection);
+
+      const folderTitle = document.createElement('div');
+      folderTitle.className = "settings-list-title p-2 mb-2 bg-[var(--theme-soft)] text-[var(--theme-main)] font-bold text-xs uppercase tracking-wider rounded";
+      folderTitle.textContent = "🗂️ フォルダ一覧";
+      folderSection.appendChild(folderTitle);
+
+      const folderList = document.createElement('div');
+      folderList.className = 'folder-sort-list settings-list-items';
+      addFolderDnDContainerHandlers(folderList);
+      folderSection.appendChild(folderList);
+
+      folders.forEach(folder => {
+        const count = drafts.filter(d => String(d.folderId) === String(folder.id)).length;
+        const div = document.createElement('div');
+        const isSelectedFolder = String(document.getElementById('select-folder-manager').value || '') === String(folder.id);
+        const isCustomFolder = folder.name !== DEFAULT_FOLDER_NAME;
+        div.className = `nav-item folder-sort-item settings-folder-item ${isSelectedFolder ? 'selected' : ''} ${isCustomFolder ? '' : 'locked-folder'}`;
+        div.dataset.id = folder.id;
+        div.dataset.draggable = isCustomFolder ? 'true' : 'false';
+        div.draggable = isCustomFolder;
+        div.innerHTML = `
+          <div class="folder-sort-handle" title="${isCustomFolder ? 'ドラッグで移動' : ''}">${isCustomFolder ? '⋮⋮' : ''}</div>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
+            <div class="font-bold text-gray-700 text-sm truncate">${folder.name}</div>
+            <div class="ml-auto shrink-0 text-[11px] text-gray-400 whitespace-nowrap">下書き ${count}件</div>
+          </div>
+        `;
+        div.onclick = async () => {
+          if (isFolderSortDragging) return;
+          document.getElementById('select-folder-manager').value = folder.id;
+          currentDraftFolderId = folder.id;
+          document.getElementById('select-draft-folder').value = folder.id;
+          await loadSettingsList();
+          showToast(`🗂️ 保存先を「${folder.name}」にしました`);
         };
-
-        function setTheme(name) {
-            const t = themes[name] || themes.pink;
-            const root = document.documentElement;
-            root.style.setProperty('--theme-main', t.main);
-            root.style.setProperty('--theme-soft', t.soft);
-            root.style.setProperty('--theme-border', t.border);
-            root.style.setProperty('--theme-hover', t.hover);
-            localStorage.setItem('wp-post-helper-theme', name);
+        if (isCustomFolder) {
+          addFolderDnDItemHandlers(div);
         }
+        folderList.appendChild(div);
+      });
 
-        setTheme(localStorage.getItem('wp-post-helper-theme') || 'pink');
+      const headerSection = document.createElement('div');
+      headerSection.className = 'settings-list-section';
+      listEl.appendChild(headerSection);
 
-        const db = new Dexie("WPPostHelperDB");
-        db.version(1).stores({
-            drafts: '++id, title, content, metaDescription, sortDate, updatedAt'
+      const hTitle = document.createElement('div');
+      hTitle.className = "settings-list-title p-2 mb-2 bg-blue-50 text-blue-500 font-bold text-xs uppercase tracking-wider rounded"; 
+      hTitle.textContent = "👑 ヘッダー一覧";
+      headerSection.appendChild(hTitle);
+      const headerList = document.createElement('div');
+      headerList.className = 'settings-list-items';
+      headerSection.appendChild(headerList);
+      headers.forEach(h => createHFListItem(h, 'header', headerList, { extraClass: 'settings-hf-item' }));
+
+      const footerSection = document.createElement('div');
+      footerSection.className = 'settings-list-section';
+      listEl.appendChild(footerSection);
+
+      const fTitle = document.createElement('div');
+      fTitle.className = "settings-list-title p-2 mb-2 bg-green-50 text-green-500 font-bold text-xs uppercase tracking-wider rounded"; 
+      fTitle.textContent = "👣 フッター一覧";
+      footerSection.appendChild(fTitle);
+      const footerList = document.createElement('div');
+      footerList.className = 'settings-list-items';
+      footerSection.appendChild(footerList);
+      footers.forEach(f => createHFListItem(f, 'footer', footerList, { extraClass: 'settings-hf-item' }));
+    }
+
+    function addFolderDnDContainerHandlers(container) {
+      if (container.dataset.folderDndBound === 'true') return;
+      container.addEventListener('dragover', handleFolderDragOver);
+      container.addEventListener('drop', handleFolderDrop);
+      container.dataset.folderDndBound = 'true';
+    }
+
+    function addFolderDnDItemHandlers(item) {
+      item.addEventListener('dragstart', handleFolderDragStart);
+      item.addEventListener('dragover', handleFolderDragOver);
+      item.addEventListener('drop', handleFolderDrop);
+      item.addEventListener('dragend', handleFolderDragEnd);
+    }
+
+    function handleFolderDragStart(e) {
+      isFolderSortDragging = true;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id || '');
+    }
+
+    function handleFolderDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const container = e.currentTarget.classList.contains('folder-sort-item')
+        ? e.currentTarget.parentElement
+        : e.currentTarget;
+      const draggingItem = container.querySelector('.folder-sort-item.dragging');
+      if (!draggingItem) return;
+
+      const afterElement = getFolderDragAfterElement(container, e.clientY);
+      const fixedItem = container.querySelector('.folder-sort-item[data-draggable="false"]');
+
+      if (afterElement == null) {
+        if (fixedItem) {
+          container.insertBefore(draggingItem, fixedItem);
+        } else {
+          container.appendChild(draggingItem);
+        }
+      } else {
+        container.insertBefore(draggingItem, afterElement);
+      }
+    }
+
+    function handleFolderDrop(e) {
+      e.preventDefault();
+    }
+
+    async function handleFolderDragEnd() {
+      this.classList.remove('dragging');
+      const container = this.parentElement;
+      if (!container) {
+        isFolderSortDragging = false;
+        return;
+      }
+
+      const updates = [...container.querySelectorAll('.folder-sort-item[data-draggable="true"]')]
+        .map((item, index) => ({
+          id: parseInt(item.dataset.id, 10),
+          order: index + 1
+        }))
+        .filter(update => Number.isFinite(update.id));
+
+      if (updates.length > 0) {
+        await db.transaction('rw', db.folders, async () => {
+          for (const update of updates) {
+            await db.folders.update(update.id, { order: update.order });
+          }
         });
 
-        const Size = Quill.import('attributors/style/size');
-        Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '36px'];
-        Quill.register(Size, true);
+        await loadFolderDropdowns();
+        await refreshSidebarAfterFolderChange();
+        showToast('↕️ フォルダ順を変更しました');
+      }
 
-        let quill = new Quill('#editor', {
-            theme: 'snow',
-            modules: {
-                toolbar: [
-                    [{ 'size': Size.whitelist }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'align': [] }],
-                    [{ 'header': 1 }, { 'header': 2 }, 'blockquote'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['link', 'clean']
-                ]
+      window.setTimeout(() => {
+        isFolderSortDragging = false;
+      }, 0);
+    }
+
+    function getFolderDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.folder-sort-item[data-draggable="true"]:not(.dragging)')];
+
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function createHFListItem(item, type, container, options = {}) {
+      const { extraClass = '' } = options;
+      const div = document.createElement('div');
+      const isEditing = (editMode === type && currentId === item.id);
+      div.className = `nav-item ${extraClass} ${isEditing ? 'bg-yellow-50 border-yellow-300' : ''}`.trim();
+      
+      const targetDate = item.createdAt || item.sortDate;
+      const dateStr = formatDate(targetDate);
+
+      div.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-gray-700 text-sm truncate">${item.name}</div>
+          <div class="text-xs text-gray-400 mt-1">${dateStr}</div>
+        </div>
+      `;
+      div.onclick = () => {
+        loadHFEditor(type, item.id);
+        if(window.innerWidth < 768) toggleSidebar();
+      };
+      container.appendChild(div);
+    }
+
+    // ★ 定型文リスト描画関数 (DnD対応)
+    async function loadSnippetList() {
+      let snippets = await db.snippets.toArray();
+      
+      // order初期化チェック
+      let needUpdate = false;
+      snippets.sort((a, b) => {
+        const dateA = a.createdAt || a.sortDate || '';
+        const dateB = b.createdAt || b.sortDate || '';
+        return dateA < dateB ? 1 : -1; 
+      });
+      
+      snippets.forEach((s, i) => {
+        if (s.order === undefined) {
+          s.order = i; 
+          needUpdate = true;
+        }
+      });
+      if(needUpdate) await db.snippets.bulkPut(snippets);
+
+      // order順ソート
+      snippets.sort((a, b) => a.order - b.order);
+
+      const listEl = document.getElementById('list-container');
+      listEl.innerHTML = '';
+      
+      if(snippets.length === 0) {
+        listEl.innerHTML = `<div class="p-8 text-center text-gray-400 text-sm">
+          まだ定型文がありません。<br>「＋新しい定型文」から登録しましょう！
+        </div>`;
+        loadQuickSnippets(); 
+        return;
+      }
+
+      snippets.forEach((item) => {
+        const div = document.createElement('div');
+        const isEditing = (editMode === 'snippet' && currentId === item.id);
+        
+        // ドラッグ可能にする
+        div.draggable = true;
+        div.dataset.id = item.id;
+        
+        const bgClass = isEditing ? 'selected' : '';
+        div.className = `snippet-item ${bgClass}`;
+
+        // ハンドル(⋮⋮)を追加
+        div.innerHTML = `
+          <div class="cursor-grab text-gray-300 hover:text-[var(--theme-main)] px-2 select-none text-lg leading-none flex items-center handle" title="ドラッグで移動">⋮⋮</div>
+          <div class="flex-1 min-w-0 pr-2 pl-1" onclick="loadSnippetEditor(${item.id})">
+            <div class="font-bold text-gray-700 text-sm truncate">📌 ${item.name || '(名称なし)'}</div>
+            <div class="text-[10px] text-gray-400 mt-1 truncate max-h-8 opacity-70">${stripHtml(item.content)}</div>
+          </div>
+          <button onclick="loadSnippetEditor(${item.id})" class="p-2 text-gray-300 hover:text-[var(--theme-main)] transition shrink-0 border-l border-gray-100" title="編集">
+            ✏️
+          </button>
+        `;
+        
+        // イベントリスナー追加
+        addDnDHandlers(div);
+        
+        listEl.appendChild(div);
+      });
+      
+      loadQuickSnippets();
+    }
+    
+    // --- DnD ロジック ---
+    function addDnDHandlers(item) {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+    }
+    
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.id);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault(); 
+        e.dataTransfer.dropEffect = 'move';
+        
+        const container = document.getElementById('list-container');
+        const afterElement = getDragAfterElement(container, e.clientY);
+        const draggable = document.querySelector('.dragging');
+        
+        if (afterElement == null) {
+            container.appendChild(draggable);
+        } else {
+            container.insertBefore(draggable, afterElement);
+        }
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+    }
+    
+    async function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        
+        const items = document.querySelectorAll('.snippet-item');
+        const updates = [];
+        
+        items.forEach((item, index) => {
+             const id = parseInt(item.dataset.id);
+             updates.push({ id: id, order: index });
+        });
+        
+        await db.transaction('rw', db.snippets, async () => {
+           for(const up of updates) {
+               await db.snippets.update(up.id, { order: up.order });
+           }
+        });
+        
+        loadQuickSnippets();
+    }
+    
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.snippet-item:not(.dragging)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+
+    // ★ 定型文クイック挿入（挿入処理）
+    async function onSnippetInsert(id) {
+        const item = await db.snippets.get(id);
+        if(!item) return;
+
+        quill.focus();
+        let range = quill.getSelection(true);
+        if (range) {
+            quill.clipboard.dangerouslyPasteHTML(range.index, item.content);
+            quill.setSelection(range.index + quill.getLength(), Quill.sources.SILENT);
+            showToast(`📌 「${item.name}」を挿入しました`);
+        } else {
+            showToast('❌ カーソル位置が特定できません');
+        }
+    }
+
+    // ★★★ クイック定型文ロード (order順) ★★★
+    async function loadQuickSnippets() {
+       let snippets = await db.snippets.toArray();
+       // order順
+       snippets.sort((a, b) => a.order - b.order);
+       
+       // 上位N件のみ
+       const topSnippets = snippets.slice(0, QUICK_SNIPPET_LIMIT);
+       
+       const containerPC = document.getElementById('quick-snippets-list');
+       const areaPC = document.getElementById('quick-snippets-area');
+       const containerMob = document.getElementById('mobile-quick-snippets-list'); // 新設
+       const areaMob = document.getElementById('mobile-quick-snippets'); // 新設
+       
+       containerPC.innerHTML = '';
+       containerMob.innerHTML = '';
+
+       if(topSnippets.length === 0) {
+         areaPC.classList.add('hidden'); 
+         areaMob.classList.add('hidden');
+         return;
+       }
+       
+       topSnippets.forEach(s => {
+          // PC用ボタン
+          const btn = document.createElement('button');
+          btn.className = "w-full bg-white/80 border border-[var(--theme-border)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95 backdrop-blur-sm";
+          btn.innerHTML = `<span class="shrink-0">📌</span> <span class="truncate">${s.name || '名称なし'}</span>`;
+          btn.onclick = () => onSnippetInsert(s.id);
+          containerPC.appendChild(btn);
+
+          // モバイル用ボタン
+          const btnMob = document.createElement('button');
+          btnMob.className = "bg-white/90 border border-[var(--theme-border)] text-[var(--theme-main)] font-bold py-1 px-3 rounded-lg shadow-sm text-xs whitespace-nowrap flex items-center gap-1 transition transform active:scale-95 backdrop-blur-sm";
+          btnMob.innerHTML = `<span>📌</span> <span>${s.name || '名称なし'}</span>`;
+          btnMob.onclick = () => onSnippetInsert(s.id);
+          containerMob.appendChild(btnMob);
+       });
+       
+       if(activeTab === 'drafts') {
+          areaPC.classList.remove('hidden');
+          areaMob.classList.remove('hidden');
+       } else {
+          areaPC.classList.add('hidden'); 
+          areaMob.classList.add('hidden');
+       }
+    }
+
+    // --- 8. 編集・作成・削除 UI制御 ---
+    function setEditorUI(mode, hasId = false) {
+      editMode = mode;
+      const wrapper = document.getElementById('editor-wrapper');
+      const indicator = document.getElementById('mode-indicator');
+      const subjectWrap = document.getElementById('subject-wrapper');
+      const hfNameWrap = document.getElementById('hf-name-wrapper');
+      const selectorWrap = document.getElementById('selector-wrapper');
+      const draftDateWrap = document.getElementById('draft-date-wrapper');
+      
+      const btnCopy = document.getElementById('btn-copy');
+      const btnWp = document.getElementById('btn-wp');
+      const btnTextCopy = document.getElementById('btn-text-copy');
+      
+      const btnDelete = document.getElementById('btn-delete');
+      const btnDeleteMobile = document.getElementById('btn-delete-mobile');
+      const btnDuplicate = document.getElementById('btn-duplicate');
+      const btnDuplicateMobile = document.getElementById('btn-duplicate-mobile');
+      
+      // スマホ版WPボタンの制御
+      const btnWpMobile = document.getElementById('btn-wp-mobile');
+      
+      // クイック定型文エリア
+      const quickAreaPC = document.getElementById('quick-snippets-area');
+      const quickAreaMob = document.getElementById('mobile-quick-snippets');
+
+      wrapper.className = ''; 
+      subjectWrap.style.display = 'none';
+      hfNameWrap.style.display = 'none';
+      selectorWrap.style.display = 'none'; 
+      draftDateWrap.style.display = 'none';
+      indicator.className = 'hidden';
+      quickAreaPC.classList.add('hidden'); 
+      quickAreaMob.classList.add('hidden'); 
+
+      if (hasId) {
+        btnDelete.classList.remove('hidden');
+        btnDeleteMobile.classList.remove('hidden');
+        btnDuplicate.classList.remove('hidden');
+        btnDuplicateMobile.classList.remove('hidden');
+      } else {
+        btnDelete.classList.add('hidden');
+        btnDeleteMobile.classList.add('hidden');
+        btnDuplicate.classList.add('hidden');
+        btnDuplicateMobile.classList.add('hidden');
+      }
+
+      if(mode === 'draft') {
+        subjectWrap.style.display = 'block';
+        selectorWrap.style.display = 'flex'; 
+        draftDateWrap.style.display = 'block';
+        btnCopy.classList.remove('hidden');
+        btnWp.classList.remove('hidden'); 
+        btnTextCopy.classList.remove('hidden');
+        btnWpMobile.classList.remove('hidden'); // 表示
+        
+        loadQuickSnippets(); 
+        
+      } else {
+        // 設定 or Snippet
+        btnCopy.classList.add('hidden');
+        btnWp.classList.add('hidden'); 
+        btnTextCopy.classList.add('hidden');
+        btnWpMobile.classList.add('hidden'); // 非表示
+        hfNameWrap.style.display = 'block'; // 名前入力欄表示
+
+        if(mode === 'header') {
+          wrapper.classList.add('mode-header');
+          indicator.textContent = '👑 ヘッダー編集モード';
+          indicator.className = 'block bg-blue-400 text-white text-center py-1 rounded mb-2 text-sm shadow-sm';
+        } else if(mode === 'footer') {
+          wrapper.classList.add('mode-footer');
+          indicator.textContent = '👣 フッター編集モード';
+          indicator.className = 'block bg-green-500 text-white text-center py-1 rounded mb-2 text-sm shadow-sm';
+        } else if(mode === 'snippet') {
+          wrapper.classList.add('mode-snippet');
+          indicator.textContent = '📌 定型文編集モード';
+          // ★修正: テーマカラー連動 + 薄い枠線デザインに変更
+          indicator.className = 'block bg-[var(--theme-soft)] border-2 border-[var(--theme-border)] text-[var(--theme-main)] text-center py-2 rounded-xl mb-2 text-sm font-bold tracking-wider';
+        }
+      }
+    }
+
+    // --- モバイル用サイドバー切替 ---
+    function toggleSidebar() {
+      const sidebar = document.getElementById('left-sidebar');
+      const overlay = document.getElementById('mobile-overlay');
+      sidebar.classList.toggle('sidebar-open');
+      overlay.classList.toggle('overlay-open');
+    }
+
+    // --- 操作ロジック ---
+
+    function createNew() {
+      currentId = null;
+      resetActionStates();
+      setEditorUI('draft', false);
+      document.getElementById('input-subject').value = '';
+      quill.root.innerHTML = ''; 
+      setDraftDateValue(new Date().toISOString());
+      if (currentDraftFolderId) {
+        document.getElementById('select-draft-folder').value = currentDraftFolderId;
+      }
+      
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: currentDraftFolderId, draftDate: getDraftDateIso() };
+      updateHeaderStatus('', false); 
+      
+      // TabがDraftでない場合、Draftに切り替え
+      if(activeTab !== 'drafts') switchTab('drafts');
+      else loadDraftList();
+      
+      if(window.innerWidth < 768) toggleSidebar();
+    }
+
+    async function loadDraft(id) {
+      resetActionStates();
+      const draft = await db.drafts.get(id);
+      if (draft) {
+        currentId = draft.id;
+        currentDraftFolderId = draft.folderId || currentDraftFolderId;
+        document.getElementById('input-subject').value = draft.subject;
+        quill.root.innerHTML = draft.content;
+        setDraftDateValue(draft.createdAt || draft.sortDate);
+        if (currentDraftFolderId) {
+          document.getElementById('select-draft-folder').value = currentDraftFolderId;
+        }
+        
+        lastSavedSnapshot = { 
+          subject: draft.subject, 
+          content: draft.content,
+          name: '',
+          folderId: draft.folderId || null,
+          draftDate: draft.createdAt || draft.sortDate || ''
+        };
+        updateHeaderStatus('', false);
+        
+        setEditorUI('draft', true); 
+        updateWpBatchPanel();
+        // もし別タブにいたら戻す
+        if(activeTab !== 'drafts') switchTab('drafts');
+        else loadDraftList(); 
+      }
+    }
+
+    function createHF(type) {
+      currentId = null;
+      resetActionStates();
+      setEditorUI(type, false);
+      document.getElementById('input-hf-name').value = '';
+      quill.root.innerHTML = '';
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
+      updateHeaderStatus('', false);
+      loadSettingsList();
+      showToast(type === 'header' ? '👑 新しいヘッダー' : '👣 新しいフッター');
+      if(window.innerWidth < 768) toggleSidebar();
+    }
+    
+    // ★ 新規定型文作成 (一番上に追加)
+    async function createSnippet() {
+      // ★ 追加: 個数制限チェック
+      const count = await db.snippets.count();
+      if (count >= QUICK_SNIPPET_LIMIT) {
+        showToast(`⚠️ 定型文は最大${QUICK_SNIPPET_LIMIT}つまでです`);
+        return;
+      }
+
+      currentId = null;
+      resetActionStates();
+      setEditorUI('snippet', false);
+      document.getElementById('input-hf-name').value = '';
+      quill.root.innerHTML = '';
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
+      updateHeaderStatus('', false);
+      
+      // 現在の最小orderを取得して、それより小さくする（先頭へ）
+      const first = await db.snippets.orderBy('order').first();
+      const newOrder = first ? first.order - 1 : 0;
+      
+      window.tempNewSnippetOrder = newOrder; // 一時的に保持
+
+      loadSnippetList();
+      showToast('📌 新しい定型文');
+      if(window.innerWidth < 768) toggleSidebar();
+    }
+
+    async function loadHFEditor(type, id) {
+      resetActionStates();
+      const table = type === 'header' ? db.headers : db.footers;
+      const item = await table.get(id);
+      if(item) {
+        currentId = item.id;
+        setEditorUI(type, true); 
+        document.getElementById('input-hf-name').value = item.name;
+        quill.root.innerHTML = item.content;
+        
+        lastSavedSnapshot = {
+          subject: '',
+          content: item.content,
+          name: item.name,
+          draftDate: ''
+        };
+        updateHeaderStatus('', false);
+        
+        loadSettingsList();
+      }
+    }
+
+    // ★ 定型文編集ロード
+    async function loadSnippetEditor(id) {
+      resetActionStates();
+      const item = await db.snippets.get(id);
+      if(item) {
+        currentId = item.id;
+        setEditorUI('snippet', true);
+        document.getElementById('input-hf-name').value = item.name;
+        quill.root.innerHTML = item.content;
+
+        lastSavedSnapshot = {
+            subject: '',
+            content: item.content,
+            name: item.name,
+            draftDate: ''
+        };
+        updateHeaderStatus('', false);
+        loadSnippetList();
+        
+        // スマホでメニュー閉じる
+        if(window.innerWidth < 768) toggleSidebar();
+      }
+    }
+
+    // --- 削除・複製処理 ---
+    async function deleteCurrentItem() {
+      if(!currentId) return;
+
+      if(duplicatePending) resetActionStates();
+
+      const btn = document.getElementById('btn-delete');
+      const btnMob = document.getElementById('btn-delete-mobile');
+      const msg = document.getElementById('action-confirm-msg');
+
+      if (!deletePending) {
+        deletePending = true;
+        msg.classList.remove('hidden');
+        msg.classList.add('border-red-200', 'text-red-500');
+        msg.innerHTML = '⚠️ 本当に削除しますか？<br>（もう一度クリック）';
+
+        btn.classList.add('bg-red-50', 'border-red-400');
+        btnMob.classList.add('bg-red-500', 'text-white');
+        btnMob.textContent = '確定';
+        showToast('⚠️ もう一度押すと削除');
+        return;
+      }
+
+      if(editMode === 'draft') {
+        selectedDraftIds.delete(String(currentId));
+        removeDraftFromBatchQueue(currentId);
+        await db.drafts.delete(currentId);
+        showToast('🗑️ 下書きを削除しました');
+        createNew();
+      } else {
+        // header, footer, snippet
+        let table;
+        if(editMode === 'header') table = db.headers;
+        else if(editMode === 'footer') table = db.footers;
+        else if(editMode === 'snippet') table = db.snippets;
+
+        await table.delete(currentId);
+        showToast('🗑️ 削除しました');
+        currentId = null;
+        quill.root.innerHTML = '';
+        document.getElementById('input-hf-name').value = '';
+        setEditorUI(editMode, false);
+        
+        if(editMode === 'snippet') {
+            loadSnippetList();
+            loadQuickSnippets();
+        } else {
+             loadSettingsList();
+             updateDropdowns();
+        }
+      }
+      resetActionStates();
+      updateSelectedDraftCountUI();
+    }
+
+    async function duplicateCurrentItem() {
+      if(!currentId) return;
+
+      if(deletePending) resetActionStates();
+
+      // ★ 追加: Snippetの場合の個数制限チェック
+      if (editMode === 'snippet') {
+        const count = await db.snippets.count();
+        if (count >= QUICK_SNIPPET_LIMIT) {
+          showToast(`⚠️ 定型文は最大${QUICK_SNIPPET_LIMIT}つまでです`);
+          resetActionStates(); // 複製確認状態をリセット
+          return;
+        }
+      }
+
+      const btn = document.getElementById('btn-duplicate');
+      const btnMob = document.getElementById('btn-duplicate-mobile');
+      const msg = document.getElementById('action-confirm-msg');
+
+      if (!duplicatePending) {
+        duplicatePending = true;
+        msg.classList.remove('hidden');
+        msg.classList.add('border-cyan-200', 'text-cyan-600');
+        msg.innerHTML = '複製しますか？<br>（もう一度クリック）';
+
+        btn.classList.add('bg-cyan-100', 'border-cyan-500');
+        btn.textContent = '確定';
+        btnMob.classList.add('bg-cyan-500', 'text-white');
+        btnMob.textContent = '確定';
+        showToast('もう一度押すと複製');
+        return;
+      }
+
+      let table;
+      if(editMode === 'draft') table = db.drafts;
+      else if(editMode === 'header') table = db.headers;
+      else if(editMode === 'footer') table = db.footers;
+      else if(editMode === 'snippet') table = db.snippets;
+
+      const original = await table.get(currentId);
+      
+      if(original) {
+        const nowObj = new Date();
+        const displayDate = nowObj.toLocaleString('ja-JP'); 
+        const sortDate = nowObj.toISOString();
+
+        const newItem = { ...original };
+        delete newItem.id;
+        newItem.createdAt = sortDate;
+        newItem.sortDate = sortDate;
+        newItem.updatedAt = displayDate;
+        
+        if(newItem.subject) newItem.subject += " のコピー";
+        if(newItem.name) newItem.name += " のコピー";
+        
+        // Snippet複製の場合、orderを調整（直下に）
+        if (editMode === 'snippet' && newItem.order !== undefined) {
+            newItem.order = newItem.order + 0.5; // 簡易的に間に挟む
+        }
+
+        const newId = await table.add(newItem);
+        showToast('✨ 複製しました！');
+
+        if(editMode === 'draft') {
+          loadDraft(newId);
+        } else if(editMode === 'snippet') {
+          loadSnippetEditor(newId);
+          loadQuickSnippets();
+        } else {
+          loadHFEditor(editMode, newId);
+          updateDropdowns();
+        }
+      }
+      resetActionStates();
+    }
+
+    // --- 9. プルダウン更新 & キャッシュ更新 ---
+    async function updateDropdowns() {
+      let headers = await db.headers.toArray();
+      let footers = await db.footers.toArray();
+      
+      headers = sortByCreatedAt(headers);
+      footers = sortByCreatedAt(footers);
+
+      const hSelect = document.getElementById('select-header');
+      const fSelect = document.getElementById('select-footer');
+      const currentH = hSelect.value;
+      const currentF = fSelect.value;
+
+      hSelect.innerHTML = '<option value="">（選択なし）</option>';
+      fSelect.innerHTML = '<option value="">（選択なし）</option>';
+
+      headers.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.id;
+        opt.textContent = h.name;
+        hSelect.appendChild(opt);
+      });
+      footers.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name;
+        fSelect.appendChild(opt);
+      });
+
+      hSelect.value = currentH;
+      fSelect.value = currentF;
+      
+      // ドロップダウン更新後にキャッシュも更新
+      await updateHFCache();
+    }
+
+    // ★★★ キャッシュ更新関数 ★★★
+    async function updateHFCache() {
+       const hId = document.getElementById('select-header').value;
+       const fId = document.getElementById('select-footer').value;
+
+       cachedHeaderContent = '';
+       cachedFooterContent = '';
+
+       if(hId && hId !== "") {
+         const h = await db.headers.get(parseInt(hId));
+         if(h) cachedHeaderContent = h.content;
+       }
+       if(fId && fId !== "") {
+         const f = await db.footers.get(parseInt(fId));
+         if(f) cachedFooterContent = f.content;
+       }
+    }
+
+    // --- ステータス表示制御 ---
+    let statusTimer = null;
+    const statusEl = document.getElementById('status-msg');
+
+    function updateHeaderStatus(msg, autoHide = false) {
+      if (!statusEl) return;
+      if (statusTimer) clearTimeout(statusTimer);
+      
+      statusEl.textContent = msg;
+      
+      if(msg) {
+        statusEl.classList.remove('opacity-0'); 
+      } else {
+        statusEl.classList.add('opacity-0');
+        return;
+      }
+
+      if (autoHide) {
+        statusTimer = setTimeout(() => {
+          statusEl.classList.add('opacity-0');
+        }, 1500);
+      }
+    }
+
+    // --- 10. 自動保存 ---
+    async function autoSave() {
+      if (deletePending || duplicatePending) return;
+
+      const content = quill.root.innerHTML;
+      const nowObj = new Date();
+      const displayDate = nowObj.toLocaleString('ja-JP'); 
+      const sortDate = nowObj.toISOString(); 
+
+      if(editMode === 'draft') {
+        const subject = document.getElementById('input-subject').value;
+        const folderId = parseInt(document.getElementById('select-draft-folder').value);
+        const draftDate = getDraftDateIso();
+        const text = quill.getText().trim();
+        
+        if (currentId && subject === lastSavedSnapshot.subject && content === lastSavedSnapshot.content) {
+          if (folderId === lastSavedSnapshot.folderId && draftDate === lastSavedSnapshot.draftDate) {
+            updateHeaderStatus('☁️ 保存済み', true);
+            return;
+          }
+        }
+
+        if (Number.isNaN(folderId)) {
+          showToast('⚠️ 保存先フォルダを選択してください');
+          updateHeaderStatus('✍️ 執筆中...');
+          return; 
+        }
+
+        if (!currentId && !subject && text.length === 0) {
+           updateHeaderStatus('', false); 
+           return;
+        }
+        
+        const data = { subject, content, folderId, sortDate, updatedAt: displayDate, createdAt: draftDate };
+        
+        if (currentId) {
+          await db.drafts.update(currentId, data);
+        } else {
+          currentId = await db.drafts.add(data);
+          setEditorUI('draft', true); 
+        }
+        
+        lastSavedSnapshot = { subject, content, name: '', folderId, draftDate };
+        currentDraftFolderId = folderId;
+        loadDraftList();
+
+      } else {
+        // Header, Footer, Snippet
+        const name = document.getElementById('input-hf-name').value || '名称未設定';
+        
+        if (currentId && name === lastSavedSnapshot.name && content === lastSavedSnapshot.content) {
+          updateHeaderStatus('☁️ 保存済み', true);
+          return;
+        }
+
+        let table;
+        if(editMode === 'header') table = db.headers;
+        else if(editMode === 'footer') table = db.footers;
+        else if(editMode === 'snippet') table = db.snippets;
+
+        const data = { name, content, sortDate, updatedAt: displayDate };
+        
+        if (currentId) {
+          await table.update(currentId, data);
+        } else {
+          // 新規作成時
+          data.createdAt = sortDate;
+          
+          if(editMode === 'snippet') {
+              // 指定されたorderがあれば使う（createSnippetで設定）
+              if(window.tempNewSnippetOrder !== undefined) {
+                  data.order = window.tempNewSnippetOrder;
+                  window.tempNewSnippetOrder = undefined;
+              } else {
+                  // なければ先頭に追加(min-1)
+                  const first = await db.snippets.orderBy('order').first();
+                  data.order = first ? first.order - 1 : 0;
+              }
+          }
+          
+          const newId = await table.add(data);
+          currentId = newId;
+          setEditorUI(editMode, true);
+        }
+
+        lastSavedSnapshot = { subject: '', content, name, folderId: null, draftDate: '' };
+        
+        if(editMode === 'snippet') {
+            loadSnippetList();
+            loadQuickSnippets(); 
+        } else {
+            loadSettingsList();
+            updateDropdowns();
+        }
+      }
+      
+      updateHeaderStatus('☁️ 自動保存しました', true);
+    }
+
+    // --- 11. 便利機能 (コピー・Zip・バックアップ) ---
+    function stripHtml(html) {
+      const tmp = document.createElement("DIV");
+      let text = html.replace(/<br\s*\/?>/gi, '\n');
+      text = text.replace(/<\/p>/gi, '\n');
+      text = text.replace(/<\/div>/gi, '\n');
+      tmp.innerHTML = text;
+      return tmp.innerText || tmp.textContent || "";
+    }
+
+    function forceCopyToClipboard(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if(successful) {
+           showToast('📋 コピー成功！');
+        } else {
+           showToast('❌ コピー失敗');
+        }
+      } catch (err) {
+        showToast('❌ エラー: コピーできませんでした');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function applyLinkStyles(html) {
+       const div = document.createElement('div');
+       div.innerHTML = html;
+       const links = div.querySelectorAll('a');
+       links.forEach(link => {
+           link.style.color = '#2563eb';
+           link.style.textDecoration = 'underline';
+       });
+       return div.innerHTML;
+    }
+
+    function applyStylesToLines(html, fontSize) {
+       const div = document.createElement('div');
+       div.innerHTML = applyLinkStyles(html);
+       const targets = div.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote');
+       targets.forEach(el => {
+           const hasStyle = el.style.fontSize;
+           const hasNestedBlocks = !!el.querySelector('p, ul, ol, div, blockquote, h1, h2, h3, h4, h5, h6');
+
+           if (hasStyle) return;
+
+           if (hasNestedBlocks) {
+               el.style.fontSize = fontSize;
+               return;
+           }
+
+           const span = document.createElement('span');
+           span.style.fontSize = fontSize;
+
+           while (el.firstChild) {
+               span.appendChild(el.firstChild);
+           }
+
+           el.appendChild(span);
+       });
+       return div.innerHTML;
+    }
+
+    function copyHtml() {
+      const body = quill.root.innerHTML;
+      let innerHtml = `${cachedHeaderContent}\n${body}\n${cachedFooterContent}`;
+
+      const nameMode = document.getElementById('select-name-convert').value;
+      if (nameMode === 'convert') {
+        innerHtml = innerHtml.replaceAll('あなた', '{{nickname}}さん');
+      }
+
+      const currentFontSize = localStorage.getItem('editor-font-size') || '16px';
+      const finalHtml = applyStylesToLines(innerHtml, currentFontSize);
+
+      forceCopyToClipboard(finalHtml);
+    }
+
+    function copyTextOnly() {
+      const body = quill.getText();
+      const textHeader = stripHtml(cachedHeaderContent);
+      const textFooter = stripHtml(cachedFooterContent);
+      
+      let finalString = `${textHeader}\n\n${body}\n\n${textFooter}`;
+      finalString = finalString.replace(/^\n+/, '').replace(/\n+$/, '');
+
+      const nameMode = document.getElementById('select-name-convert').value;
+      if (nameMode === 'convert') {
+        finalString = finalString.replaceAll('あなた', '{{nickname}}さん');
+      }
+
+      forceCopyToClipboard(finalString);
+    }
+
+    function copyBodyOnly() {
+      const body = quill.root.innerHTML;
+      forceCopyToClipboard(applyLinkStyles(body));
+    }
+
+    function copyDraftBodyHtml(html) {
+      forceCopyToClipboard(applyLinkStyles(html || ''));
+    }
+
+    function triggerWpPostAction() {
+      const extensionBtn = document.getElementById('wp-post-button');
+      if (extensionBtn) {
+        document.documentElement.setAttribute('data-mailcopy-wp-batch', 'true');
+        document.documentElement.removeAttribute('data-mailcopy-wp-post-result');
+        extensionBtn.click();
+        return true;
+      }
+
+      const btn = document.getElementById('btn-wp');
+      if (btn) {
+        showToast('⚠️ 拡張機能の投稿ボタンが見つからないため、WPコピーに切り替えました');
+        btn.click();
+        return false;
+      }
+      copyBodyOnly();
+      return false;
+    }
+
+    function waitForWpBatchResult() {
+      clearWpBatchTimer();
+      wpBatchTimer = window.setTimeout(() => {
+        wpBatchPosting = false;
+        showToast('⚠️ WordPressから応答がないため、まとめ投稿を停止しました');
+        updateWpBatchPanel();
+      }, WP_BATCH_TIMEOUT_MS);
+    }
+
+    document.documentElement.addEventListener('mailcopy-wp-post-result', () => {
+      if (!isWpBatchActive() || !wpBatchPosting) return;
+
+      clearWpBatchTimer();
+      wpBatchPosting = false;
+
+      let result;
+      try {
+        result = JSON.parse(document.documentElement.getAttribute('data-mailcopy-wp-post-result') || '{}');
+      } catch (error) {
+        result = { success: false, error: '投稿結果を読み取れませんでした' };
+      }
+
+      if (!result.success) {
+        showToast(`❌ ${wpBatchIndex + 1}件目で停止: ${result.error || '投稿に失敗しました'}`);
+        updateWpBatchPanel();
+        return;
+      }
+
+      showToast(`✅ ${wpBatchIndex + 1}/${wpBatchQueue.length}件の投稿が完了しました`);
+      window.setTimeout(() => advanceWpBatch(), 400);
+    });
+
+    async function startWpBatch() {
+      if (getSelectedDraftCount() === 0) {
+        showToast('⚠️ 先に下書きを選択してください');
+        return;
+      }
+
+      if (editMode === 'draft') {
+        await autoSave();
+      }
+
+      const selectedIds = Array.from(selectedDraftIds).map(id => parseInt(id, 10)).filter(Number.isFinite);
+      const drafts = (await db.drafts.bulkGet(selectedIds)).filter(Boolean);
+      if (drafts.length === 0) {
+        showToast('⚠️ 選択した下書きが見つかりませんでした');
+        clearSelectedDrafts();
+        return;
+      }
+
+      sortByCreatedAtOldestFirst(drafts);
+      wpBatchQueue = drafts.map(draft => draft.id);
+      wpBatchIndex = -1;
+      isWpBatchSelectionMode = false;
+      updateWpBatchSelectionModeUI();
+      await advanceWpBatch();
+    }
+
+    async function advanceWpBatch(isManualAdvance = false) {
+      if (wpBatchPosting) {
+        showToast('⏳ 現在の投稿完了を待っています');
+        return;
+      }
+
+      clearWpBatchTimer();
+
+      if (wpBatchQueue.length === 0) {
+        showToast('⚠️ まとめ投稿の対象がありません');
+        updateWpBatchPanel();
+        return;
+      }
+
+      const nextIndex = wpBatchIndex + 1;
+      if (nextIndex >= wpBatchQueue.length) {
+        showToast('✅ 選択した下書きのWordPress投稿が完了しました');
+        cancelWpBatch(false);
+        return;
+      }
+
+      wpBatchIndex = nextIndex;
+      const draftId = wpBatchQueue[wpBatchIndex];
+      const draft = await db.drafts.get(draftId);
+      if (!draft) {
+        selectedDraftIds.delete(String(draftId));
+        await advanceWpBatch();
+        return;
+      }
+
+      await loadDraft(draftId);
+      await new Promise(resolve => window.setTimeout(resolve, 60));
+      wpBatchPosting = true;
+      const started = triggerWpPostAction();
+      if (!started) {
+        wpBatchPosting = false;
+        updateWpBatchPanel();
+        return;
+      }
+      waitForWpBatchResult();
+      updateWpBatchPanel();
+      showToast(`${isManualAdvance ? '⏭️' : '🚀'} ${wpBatchIndex + 1}/${wpBatchQueue.length}件目の投稿を開始しました`);
+    }
+
+    function cancelWpBatch(keepSelection = true) {
+      clearWpBatchTimer();
+      wpBatchPosting = false;
+      document.documentElement.removeAttribute('data-mailcopy-wp-batch');
+      document.documentElement.removeAttribute('data-mailcopy-wp-post-result');
+      wpBatchQueue = [];
+      wpBatchIndex = -1;
+      if (!keepSelection) {
+        selectedDraftIds.clear();
+        updateSelectedDraftCountUI();
+      }
+      updateWpBatchPanel();
+      if (activeTab === 'drafts') {
+        loadDraftList();
+      }
+    }
+
+    async function recopyCurrentWpBatchItem() {
+      if (!isWpBatchActive()) {
+        showToast('⚠️ まとめWPは開始されていません');
+        return;
+      }
+
+      if (wpBatchPosting) {
+        showToast('⏳ 現在の投稿完了を待っています');
+        return;
+      }
+
+      const draftId = wpBatchQueue[wpBatchIndex];
+      const draft = await db.drafts.get(draftId);
+      if (!draft) {
+        showToast('⚠️ 現在の下書きが見つかりません');
+        return;
+      }
+
+      wpBatchPosting = true;
+      const started = triggerWpPostAction();
+      if (!started) {
+        wpBatchPosting = false;
+        return;
+      }
+      waitForWpBatchResult();
+      showToast('🚀 今の下書きをもう一度投稿しています');
+    }
+
+    async function downloadAllDraftsAsZip() {
+      if(!confirm('すべての下書きをzipファイルでダウンロードしますか？')) return;
+
+      const drafts = await db.drafts.orderBy('sortDate').reverse().toArray();
+      if(drafts.length === 0) {
+        showToast('⚠️ 保存する下書きがありません');
+        return;
+      }
+
+      const zip = new JSZip();
+      const usedNames = {};
+
+      drafts.forEach(d => {
+        let filename = (d.subject || '無題').replace(/[\\/:*?"<>|]/g, '_');
+        if (usedNames[filename]) {
+          usedNames[filename]++;
+          filename = `${filename}(${usedNames[filename]})`;
+        } else {
+          usedNames[filename] = 1;
+        }
+        const bodyText = stripHtml(d.content);
+        const targetDate = d.createdAt || d.sortDate;
+        const dateStr = formatDate(targetDate);
+        
+        const fileContent = `件名: ${d.subject}\n日付: ${dateStr}\n\n${bodyText}`;
+        zip.file(`${filename}.txt`, fileContent);
+      });
+
+      zip.generateAsync({type:"blob"}).then(function(content) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = `メルマガバックアップ_${new Date().toLocaleDateString().replace(/\//g,'-')}.zip`;
+        a.click();
+        showToast('📦 zip作成完了！');
+      });
+    }
+
+    function getBackupTimestamp() {
+      return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').slice(0, 19);
+    }
+
+    async function collectBackupData() {
+      const drafts = await db.drafts.toArray();
+      const folders = await db.folders.toArray();
+      const headers = await db.headers.toArray();
+      const footers = await db.footers.toArray();
+      const snippets = await db.snippets.toArray();
+      const theme = localStorage.getItem('editor-theme') || 'pink';
+      const fontSize = localStorage.getItem('editor-font-size') || '16px';
+
+      return { version: '3.0', date: new Date().toISOString(), theme, fontSize, drafts, folders, headers, footers, snippets };
+    }
+
+    function downloadBackupJson(data, filename) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // データ移行
+    async function exportData() {
+      if(!confirm('全データをファイルとして保存しますか？')) return;
+      const data = await collectBackupData();
+      downloadBackupJson(data, `mailcopy_backup_${getBackupTimestamp()}.json`);
+      showToast('📤 バックアップ完了');
+    }
+
+    async function importData(input) {
+      const file = input.files[0];
+      if(!file) return;
+      if(!confirm('⚠️ 現在のデータは全て上書きされます！よろしいですか？')) {
+        input.value = ''; return;
+      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          await db.transaction('rw', db.drafts, db.folders, db.headers, db.footers, db.snippets, async () => {
+            await db.drafts.clear(); await db.folders.clear(); await db.headers.clear(); await db.footers.clear(); await db.snippets.clear();
+            if(data.drafts) await db.drafts.bulkAdd(data.drafts);
+            if(data.folders) await db.folders.bulkAdd(data.folders);
+            if(data.headers) await db.headers.bulkAdd(data.headers);
+            if(data.footers) await db.footers.bulkAdd(data.footers);
+            if(data.snippets) await db.snippets.bulkAdd(data.snippets);
+          });
+          await ensureDefaultFolder();
+          if(data.theme) setTheme(data.theme);
+          if(data.fontSize) changeBaseFontSize(data.fontSize);
+          
+          showToast('✅ 復元完了！');
+          setTimeout(() => location.reload(), 1000);
+        } catch(err) {
+          alert('読み込み失敗');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- トリガー設定 (入力検知) ---
+    const triggerSave = () => {
+      clearTimeout(autoSaveTimer);
+      updateHeaderStatus('✍️ 執筆中...');
+      autoSaveTimer = setTimeout(autoSave, 1000);
+    };
+
+    function updateCharCount() {
+      const text = quill.getText();
+      const cleanText = text.replace(/\s/g, ''); 
+      const count = cleanText.length;
+      
+      const countEl = document.getElementById('char-count');
+      if(countEl) countEl.textContent = `${count}文字`;
+    }
+
+    quill.on('text-change', function(delta, oldDelta, source) {
+      updateCharCount();
+      if (source === 'user') triggerSave();
+    });
+    
+    document.getElementById('input-subject').addEventListener('input', triggerSave);
+    document.getElementById('input-hf-name').addEventListener('input', triggerSave);
+    const onDraftDateInput = function() {
+      if (editMode === 'draft') triggerSave();
+    };
+    document.getElementById('input-draft-date').addEventListener('input', onDraftDateInput);
+    document.getElementById('input-draft-date').addEventListener('change', onDraftDateInput);
+    document.getElementById('search-input').addEventListener('input', loadDraftList);
+    document.getElementById('select-folder-manager').addEventListener('change', function() {
+      const nextValue = parseInt(this.value);
+      if (Number.isNaN(nextValue)) return;
+      currentDraftFolderId = nextValue;
+      document.getElementById('select-draft-folder').value = nextValue;
+      if (activeTab === 'settings') loadSettingsList();
+    });
+    document.getElementById('select-draft-folder').addEventListener('change', function() {
+      const nextValue = parseInt(this.value);
+      currentDraftFolderId = nextValue;
+      if (editMode === 'draft') triggerSave();
+    });
+    
+    document.getElementById('select-header').addEventListener('change', updateHFCache);
+    document.getElementById('select-footer').addEventListener('change', updateHFCache);
+
+    function shouldUseMobileImageResizePrompt() {
+      const userAgentMobile = navigator.userAgentData?.mobile
+        ?? /Android|iPhone|iPod|Mobile/i.test(navigator.userAgent);
+      const touchOnlyNarrowScreen = window.matchMedia('(pointer: coarse)').matches
+        && window.innerWidth < 768;
+      return userAgentMobile || touchOnlyNarrowScreen;
+    }
+
+    document.getElementById('editor').addEventListener('click', function(e) {
+      if (!shouldUseMobileImageResizePrompt()) return;
+      if (e.target.tagName === 'IMG') {
+        if(!confirm('画像のサイズを変更しますか？')) return;
+        const currentW = e.target.getAttribute('width') || e.target.style.width || '100%';
+        const newWidth = prompt('幅を指定してください\n(例: 100%, 300, 500px)', currentW);
+        if (newWidth) {
+          e.target.setAttribute('width', newWidth); 
+          e.target.style.width = newWidth;
+          if(!isNaN(newWidth)) {
+             e.target.style.width = newWidth + 'px';
+          }
+          triggerSave(); 
+          showToast('🖼️ サイズを変更しました');
+        }
+      }
+    });
+
+    // ▼▼▼ 機能: 検索と置換 & AI整形 ▼▼▼
+    
+    function toggleSearchModal() {
+        const modal = document.getElementById('search-modal');
+        modal.classList.toggle('hidden');
+        if(!modal.classList.contains('hidden')) {
+            // モーダルを開いたときに設定をロード
+            loadAiCleanupConfig();
+            document.getElementById('search-term').focus();
+            // Reset pending states
+            resetModalActionStates();
+        }
+    }
+
+    // ★追加★ モーダル内のボタン状態リセット
+    function resetModalActionStates() {
+        aiCleanupPending = false;
+        manualReplacePending = false;
+
+        // AIボタンリセット
+        const aiBtn = document.getElementById('btn-ai-execute');
+        if(aiBtn) {
+            aiBtn.innerHTML = '🧹 実行する';
+            aiBtn.className = "w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2";
+        }
+
+        // 手動置換ボタンリセット
+        const manualBtn = document.getElementById('btn-manual-replace');
+        if(manualBtn) {
+            manualBtn.innerHTML = 'すべて置換';
+            manualBtn.className = "bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm";
+        }
+    }
+    
+    // 正規表現のエスケープ用
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    }
+
+    // ★ Delta直接操作版の手動置換 (インデックスズレ防止)
+    function executeReplace(searchTerm, replaceTerm, checkSubject) {
+        if (!searchTerm) return 0;
+
+        let replaceCount = 0;
+
+        // 1. 件名の置換 (DOM操作)
+        if (checkSubject && editMode === 'draft') {
+            const subjInput = document.getElementById('input-subject');
+            if (subjInput.value.includes(searchTerm)) {
+                const regex = new RegExp(escapeRegExp(searchTerm), 'g');
+                const matches = subjInput.value.match(regex);
+                if(matches) replaceCount += matches.length;
+                
+                subjInput.value = subjInput.value.replaceAll(searchTerm, replaceTerm);
+                triggerSave();
+            }
+        }
+
+        // 2. 本文の置換 (Delta操作)
+        const delta = quill.getContents();
+        const regex = new RegExp(escapeRegExp(searchTerm), 'g');
+        let bodyReplaceCount = 0;
+
+        delta.ops.forEach(op => {
+            if (typeof op.insert === 'string') {
+                const original = op.insert;
+                // 一括置換
+                const replaced = original.replaceAll(searchTerm, replaceTerm);
+                
+                if (original !== replaced) {
+                    // 出現回数をカウント (簡易的)
+                    const matches = original.match(regex);
+                    if(matches) bodyReplaceCount += matches.length;
+                    
+                    op.insert = replaced;
+                }
             }
         });
 
-        let currentId = null;
-        let activeTab = 'drafts';
-        let autoSaveTimer = null;
-        let headerSaveTimer = null;
-        let toastTimer = null;
-
-        function showToast(message) {
-            const toast = document.getElementById('toast-container');
-            toast.textContent = message;
-            toast.classList.add('show');
-            if (toastTimer) clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+        if (bodyReplaceCount > 0) {
+            quill.setContents(delta, Quill.sources.USER);
+            triggerSave();
+            replaceCount += bodyReplaceCount;
         }
 
-        function flashSaved() {
-            const msg = document.getElementById('header-save-msg');
-            msg.classList.remove('opacity-0');
-            if (headerSaveTimer) clearTimeout(headerSaveTimer);
-            headerSaveTimer = setTimeout(() => msg.classList.add('opacity-0'), 1800);
+        return replaceCount;
+    }
+
+    // 手動置換ボタン (ダブルクリック確認方式)
+    function performManualReplace() {
+        const searchTerm = document.getElementById('search-term').value;
+        // 入力チェック (未入力なら何もしない)
+        if (!searchTerm) {
+            showToast('⚠️ 検索する文字を入力してください');
+            return;
         }
 
-        function switchTab(tabName) {
-            activeTab = tabName;
+        const btn = document.getElementById('btn-manual-replace');
 
-            const btnDrafts = document.getElementById('tab-drafts');
-            const btnSettings = document.getElementById('tab-settings');
-            const ctrlDrafts = document.getElementById('ctrl-drafts');
-            const ctrlSettings = document.getElementById('ctrl-settings');
-
-            if (tabName === 'drafts') {
-                btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
-                btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
-                ctrlDrafts.classList.remove('hidden');
-                ctrlSettings.classList.add('hidden');
-                loadDraftList();
-            } else {
-                btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
-                btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
-                ctrlSettings.classList.remove('hidden');
-                ctrlDrafts.classList.add('hidden');
-                document.getElementById('list-container').innerHTML = `
-                    <div class="p-4 text-sm text-gray-500 leading-relaxed">
-                        このライト版では設定画面はバックアップ用です。<br><br>
-                        入力するのは次の3つだけです。<br>
-                        ・記事タイトル<br>
-                        ・記事本文<br>
-                        ・メタディスクリプション
-                    </div>
-                `;
-            }
+        // 1回目クリック: 確認モードへ
+        if (!manualReplacePending) {
+            manualReplacePending = true;
+            btn.innerHTML = '⚠️ 確定';
+            // 確認時は赤色になど変更
+            btn.classList.remove('bg-[var(--theme-main)]');
+            btn.classList.add('bg-red-500');
+            return;
         }
 
-        async function loadDraftList() {
-            const drafts = await db.drafts.orderBy('sortDate').reverse().toArray();
-            const listEl = document.getElementById('list-container');
-            listEl.innerHTML = '';
+        // 2回目クリック: 実行
+        const replaceTerm = document.getElementById('replace-term').value;
+        const checkSubject = document.getElementById('check-subject').checked;
 
-            if (!drafts.length) {
-                listEl.innerHTML = `<div class="p-4 text-sm text-gray-400 text-center">まだ記事がありません</div>`;
-                return;
-            }
-
-            drafts.forEach(item => {
-                const div = document.createElement('div');
-                const isSelected = currentId === item.id;
-                div.className = `nav-item ${isSelected ? 'selected' : ''}`;
-                div.innerHTML = `
-                    <div class="flex-1 min-w-0">
-                        <div class="font-bold text-gray-700 truncate">${escapeHtml(item.title || '(無題)')}</div>
-                        <div class="text-xs text-gray-400 mt-1">${item.updatedAt || ''}</div>
-                    </div>
-                `;
-                div.onclick = () => loadDraft(item.id);
-                listEl.appendChild(div);
-            });
+        const count = executeReplace(searchTerm, replaceTerm, checkSubject);
+        if (count > 0) {
+            showToast(`✅ ${count}箇所を置換しました`);
+            toggleSearchModal(); // 成功したら閉じる (リセットもされる)
+        } else {
+            showToast('⚠️ 対象の文字が見つかりませんでした');
+            resetModalActionStates(); // 見つからなかったらリセットして留まる
         }
+    }
 
-        function createNew() {
-            currentId = null;
-            document.getElementById('input-title').value = '';
-            document.getElementById('input-meta').value = '';
-            quill.root.innerHTML = '';
-            renderPreview();
-            loadDraftList();
-            showToast('📝 新しい記事を作成中');
-        }
+    // ★追加★ AI整形（一括削除） - Delta直接操作版
+    // ユーザー選択対応 + 設定保存 + ダブルクリック確認方式
+    function performAiCleanup() {
+       let targets = "";
+       if (document.getElementById('ai-target-full-quote').checked) targets += "“”";
+       if (document.getElementById('ai-target-half-quote').checked) targets += "\"";
+       if (document.getElementById('ai-target-space').checked) targets += " ";
+       if (document.getElementById('ai-target-brackets').checked) targets += "「」";
+       if (document.getElementById('ai-target-asterisk').checked) targets += "*";
 
-        async function loadDraft(id) {
-            const draft = await db.drafts.get(id);
-            if (!draft) return;
-            currentId = draft.id;
-            document.getElementById('input-title').value = draft.title || '';
-            document.getElementById('input-meta').value = draft.metaDescription || '';
-            quill.root.innerHTML = draft.content || '';
-            renderPreview();
-            loadDraftList();
-        }
+       if (!targets) {
+           showToast('⚠️ 削除する記号を選択してください');
+           return;
+       }
 
-        async function autoSave() {
-            const title = document.getElementById('input-title').value.trim();
-            const content = quill.root.innerHTML;
-            const metaDescription = document.getElementById('input-meta').value.trim();
-            const bodyText = quill.getText().trim();
-            if (!title && !bodyText && !metaDescription) return;
+       const btn = document.getElementById('btn-ai-execute');
 
-            const nowObj = new Date();
-            const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const sortDate = nowObj.toISOString();
-            const data = { title, content, metaDescription, sortDate, updatedAt: displayDate };
+       // 1回目クリック: 確認モードへ
+       if (!aiCleanupPending) {
+           aiCleanupPending = true;
+           btn.innerHTML = '⚠️ もう一度押して実行';
+           // 確認時は赤色になど変更
+           btn.classList.remove('bg-[var(--theme-main)]', 'hover:bg-[var(--theme-hover)]');
+           btn.classList.add('bg-red-500', 'hover:bg-red-600');
+           return;
+       }
 
-            if (currentId) {
-                await db.drafts.update(currentId, data);
-            } else {
-                currentId = await db.drafts.add(data);
-            }
+       // 2回目クリック: 実行
+       // if(!confirm(...)) return; // 削除
 
-            flashSaved();
-            loadDraftList();
-        }
+       const delta = quill.getContents();
+       // 削除対象を正規表現の文字クラス [] に変換
+       const escapedTargets = targets.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+       const regex = new RegExp(`[${escapedTargets}]`, 'g'); 
+       
+       let matchCount = 0;
 
-        async function exportBackup() {
-            try {
-                const drafts = await db.drafts.toArray();
-                const backupData = {
-                    app: 'WP Post Helper Lite',
-                    backupVersion: 1,
-                    exportedAt: new Date().toISOString(),
-                    theme: localStorage.getItem('wp-post-helper-theme') || 'pink',
-                    data: { drafts }
-                };
+       // Deltaの各Opを走査して文字を置換
+       delta.ops.forEach(op => {
+         if (typeof op.insert === 'string') {
+           const original = op.insert;
+           const replaced = original.replace(regex, '');
+           if (original !== replaced) {
+             matchCount += (original.length - replaced.length); // 削除された文字数
+             op.insert = replaced;
+           }
+         }
+       });
 
-                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                const now = new Date();
-                const pad = value => String(value).padStart(2, '0');
-                const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-                link.href = url;
-                link.download = `wp-post-helper-backup_${stamp}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                showToast(`💾 バックアップを保存しました（${drafts.length}件）`);
-            } catch (error) {
-                console.error(error);
-                showToast('❌ バックアップ保存に失敗しました');
-            }
-        }
+       if (matchCount > 0) {
+           quill.setContents(delta, Quill.sources.USER); // 履歴に残す
+           triggerSave(); // 保存トリガー
+           showToast(`🧹 合計 ${matchCount}文字を削除しました`);
+           toggleSearchModal(); // 成功したら閉じる
+       } else {
+           showToast('✅ 対象の記号は見つかりませんでした');
+           resetModalActionStates(); // リセット
+       }
+    }
 
-        function openBackupFilePicker() {
-            const input = document.getElementById('backup-file-input');
-            input.value = '';
-            input.click();
-        }
+    // ★追加★ 設定保存機能
+    function saveAiCleanupConfig() {
+      const config = {
+        fullQuote: document.getElementById('ai-target-full-quote').checked,
+        halfQuote: document.getElementById('ai-target-half-quote').checked,
+        space: document.getElementById('ai-target-space').checked,
+        brackets: document.getElementById('ai-target-brackets').checked,
+        asterisk: document.getElementById('ai-target-asterisk').checked
+      };
+      localStorage.setItem('mail_helper_ai_config', JSON.stringify(config));
+    }
 
-        async function importBackup(event) {
-            const file = event.target.files && event.target.files[0];
-            if (!file) return;
+    function loadAiCleanupConfig() {
+      const configStr = localStorage.getItem('mail_helper_ai_config');
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        if(config.fullQuote !== undefined) document.getElementById('ai-target-full-quote').checked = config.fullQuote;
+        if(config.halfQuote !== undefined) document.getElementById('ai-target-half-quote').checked = config.halfQuote;
+        if(config.space !== undefined) document.getElementById('ai-target-space').checked = config.space;
+        if(config.brackets !== undefined) document.getElementById('ai-target-brackets').checked = config.brackets;
+        if(config.asterisk !== undefined) document.getElementById('ai-target-asterisk').checked = config.asterisk;
+      }
+    }
 
-            try {
-                const text = await file.text();
-                const backup = JSON.parse(text);
-                const data = backup && backup.data;
+    // ▲▲▲ ここまで追加機能 ▲▲▲
 
-                if (backup.app !== 'WP Post Helper Lite' || !data || !Array.isArray(data.drafts)) {
-                    throw new Error('invalid backup');
-                }
-
-                const ok = confirm(
-                    `バックアップを復元します。\n\n記事数：${data.drafts.length}件\n\n現在の保存データは置き換わります。`
-                );
-                if (!ok) return;
-
-                await db.transaction('rw', db.drafts, async () => {
-                    await db.drafts.clear();
-                    if (data.drafts.length) await db.drafts.bulkAdd(data.drafts);
-                });
-
-                if (backup.theme && themes[backup.theme]) {
-                    setTheme(backup.theme);
-                }
-
-                currentId = null;
-                document.getElementById('input-title').value = '';
-                document.getElementById('input-meta').value = '';
-                quill.root.innerHTML = '';
-                renderPreview();
-                if (activeTab === 'drafts') loadDraftList();
-                showToast(`✅ 復元しました（${data.drafts.length}件）`);
-            } catch (error) {
-                console.error(error);
-                showToast('❌ このバックアップファイルは読み込めません');
-            } finally {
-                event.target.value = '';
-            }
-        }
-
-        function stripHtml(html) {
-            const tmp = document.createElement("div");
-            let text = html.replace(/<br\s*\/?>/gi, '\n');
-            text = text.replace(/<\/p>/gi, '\n');
-            text = text.replace(/<\/div>/gi, '\n');
-            tmp.innerHTML = text;
-            return tmp.innerText || tmp.textContent || "";
-        }
-
-        function execCopy(text) {
-            if (navigator.clipboard && window.isSecureContext) {
-                return navigator.clipboard.writeText(text);
-            }
-
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            return new Promise((resolve, reject) => {
-                try {
-                    const successful = document.execCommand('copy');
-                    successful ? resolve() : reject();
-                } catch (err) {
-                    reject(err);
-                } finally {
-                    document.body.removeChild(textArea);
-                }
-            });
-        }
-
-        async function copyHtml() {
-            try {
-                await execCopy(quill.root.innerHTML);
-                showToast('📋 HTMLをコピーしました');
-            } catch (err) {
-                console.error(err);
-                showToast('❌ コピー失敗');
-            }
-        }
-
-        async function copyTextOnly() {
-            try {
-                await execCopy(stripHtml(quill.root.innerHTML));
-                showToast('📄 本文をコピーしました');
-            } catch (err) {
-                console.error(err);
-                showToast('❌ コピー失敗');
-            }
-        }
-
-        async function copyMetaOnly() {
-            try {
-                await execCopy(document.getElementById('input-meta').value);
-                showToast('🏷️ メタ説明をコピーしました');
-            } catch (err) {
-                console.error(err);
-                showToast('❌ コピー失敗');
-            }
-        }
-
-        function renderPreview() {
-            const title = document.getElementById('input-title').value.trim();
-            const meta = document.getElementById('input-meta').value.trim();
-            document.getElementById('preview-title').textContent = title || '(未入力)';
-            document.getElementById('preview-meta').textContent = meta || '(未入力)';
-            document.getElementById('meta-count').textContent = `${meta.length}文字`;
-        }
-
-        function triggerSave() {
-            clearTimeout(autoSaveTimer);
-            autoSaveTimer = setTimeout(autoSave, 900);
-            renderPreview();
-        }
-
-        function escapeHtml(value) {
-            return String(value)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#39;');
-        }
-
-        quill.on('text-change', triggerSave);
-        document.getElementById('input-title').addEventListener('input', triggerSave);
-        document.getElementById('input-meta').addEventListener('input', triggerSave);
-
-        switchTab('drafts');
-        renderPreview();
-    </script>
+    // 初期ロード
+    (async function initializeApp() {
+      await ensureDefaultFolder();
+      await loadFolderDropdowns();
+      setDraftDateValue(new Date().toISOString());
+      lastSavedSnapshot.draftDate = getDraftDateIso();
+      updateSelectedDraftCountUI();
+      updateWpBatchPanel();
+      await switchTab('drafts');
+      loadAiCleanupConfig();
+    })();
+  </script>
 </body>
 </html>
