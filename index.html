@@ -183,12 +183,6 @@
                 <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
                     ＋ 新しい記事を書く
                 </button>
-                <button onclick="toggleBulkImport()" class="w-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold py-2 px-4 rounded-xl shadow-sm transition">
-                    まとめて貼り付ける
-                </button>
-                <button onclick="toggleJsonImport()" class="w-full bg-[var(--theme-soft)] border border-[var(--theme-border)] text-[var(--theme-main)] hover:opacity-80 font-bold py-2 px-4 rounded-xl shadow-sm transition">
-                    JSONから取り込む
-                </button>
             </div>
 
             <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-3">
@@ -236,6 +230,15 @@
                 </div>
             </div>
 
+            <div class="flex flex-wrap gap-3">
+                <button onclick="createNew()" class="bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-5 rounded-full shadow-sm transition">
+                    ＋ 新しい記事を書く
+                </button>
+                <button onclick="toggleBulkImport()" class="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow-sm transition">
+                    まとめて貼り付ける
+                </button>
+            </div>
+
             <div id="bulk-import-panel" class="hidden bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
@@ -258,29 +261,6 @@
                     </button>
                     <button onclick="importBulkContent()" class="rounded-full border-2 border-[var(--theme-main)] bg-white px-5 py-2 text-sm font-bold text-[var(--theme-main)] hover:bg-[var(--theme-soft)]">
                         この内容で反映する
-                    </button>
-                </div>
-            </div>
-
-            <div id="json-import-panel" class="hidden bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div>
-                        <h2 class="font-bold text-gray-700">JSON一括取り込み</h2>
-                        <p class="text-xs text-gray-400 mt-1">AIが出力したJSONを貼り付けると、新しい記事としてまとめて追加します。</p>
-                    </div>
-                    <button onclick="toggleJsonImport(false)" class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100">
-                        閉じる
-                    </button>
-                </div>
-                <textarea id="json-import-input"
-                    class="w-full min-h-[220px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
-                    placeholder='{"items":[{"title":"記事タイトル","meta":"メタディスクリプション","body":"本文"}]}'></textarea>
-                <div class="mt-3 flex flex-wrap justify-end gap-2">
-                    <button onclick="clearJsonImport()" class="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100">
-                        クリア
-                    </button>
-                    <button onclick="importJsonItems()" class="rounded-full border-2 border-[var(--theme-main)] bg-white px-5 py-2 text-sm font-bold text-[var(--theme-main)] hover:bg-[var(--theme-soft)]">
-                        取り込む
                     </button>
                 </div>
             </div>
@@ -358,9 +338,6 @@
                     メタ説明をコピー
                 </button>
 
-                <button onclick="copyHtml()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    HTMLコピー
-                </button>
             </div>
         </main>
     </div>
@@ -577,17 +554,7 @@
             quill.root.innerHTML = '';
             renderPreview();
             loadDraftList();
-            showToast('📝 新しい記事を作成中');
-        }
-
-        function toggleJsonImport(forceState) {
-            const panel = document.getElementById('json-import-panel');
-            const shouldOpen = typeof forceState === 'boolean' ? forceState : panel.classList.contains('hidden');
-            panel.classList.toggle('hidden', !shouldOpen);
-        }
-
-        function clearJsonImport() {
-            document.getElementById('json-import-input').value = '';
+            showToast('📝 入力欄を新規記事用に切り替えました');
         }
 
         function toggleBulkImport(forceState) {
@@ -631,68 +598,6 @@
 
             flashSaved();
             loadDraftList();
-        }
-
-        async function importJsonItems() {
-            const input = document.getElementById('json-import-input').value.trim();
-            if (!input) {
-                showToast('❌ JSONを貼り付けてください');
-                return;
-            }
-
-            let parsed;
-            try {
-                parsed = JSON.parse(input);
-            } catch (error) {
-                showToast('❌ JSONの形式が正しくありません');
-                return;
-            }
-
-            const items = Array.isArray(parsed?.items) ? parsed.items : null;
-            if (!items) {
-                showToast('❌ JSONの形式が正しくありません');
-                return;
-            }
-
-            try {
-                const baseTime = Date.now();
-                const createdIds = await db.transaction('rw', db.drafts, async () => {
-                    const ids = [];
-
-                    for (let index = 0; index < items.length; index += 1) {
-                        const item = items[index] && typeof items[index] === 'object' ? items[index] : {};
-                        const nowObj = new Date(baseTime + index * 1000);
-                        const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                        const sortDate = nowObj.toISOString();
-
-                        const id = await db.drafts.add({
-                            title: typeof item.title === 'string' ? item.title : '',
-                            metaDescription: typeof item.meta === 'string' ? item.meta : '',
-                            content: plainTextToEditorHtml(typeof item.body === 'string' ? item.body : ''),
-                            sortDate,
-                            updatedAt: displayDate
-                        });
-
-                        ids.push(id);
-                    }
-
-                    return ids;
-                });
-
-                if (!createdIds.length) {
-                    showToast('❌ 取り込める記事がありません');
-                    return;
-                }
-
-                await loadDraft(createdIds[createdIds.length - 1]);
-                clearJsonImport();
-                toggleJsonImport(false);
-                flashSaved();
-                showToast(`✅ ${createdIds.length}件取り込みました`);
-            } catch (error) {
-                console.error(error);
-                showToast('❌ JSONの取り込みに失敗しました');
-            }
         }
 
         async function importBulkContent() {
