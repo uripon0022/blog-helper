@@ -106,10 +106,10 @@
             background-color: var(--theme-soft);
         }
 
-        .ql-snow .ql-picker.ql-size .ql-picker-label::before,
-        .ql-snow .ql-picker.ql-size .ql-picker-item::before,
-        .ql-snow .ql-picker.ql-header .ql-picker-label::before,
-        .ql-snow .ql-picker.ql-header .ql-picker-item::before {
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-label]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-label]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-label[data-label]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item[data-label]::before {
             content: attr(data-label);
         }
     </style>
@@ -364,7 +364,7 @@
             }
         });
 
-        setTimeout(() => {
+        function syncToolbarPickerLabels() {
             const sizeLabels = {
                 '10px': '10px',
                 '11px': '11px',
@@ -380,39 +380,34 @@
                 '48px': '48px'
             };
 
-            const picker = document.querySelector('.ql-size .ql-picker-options');
-            if (picker) {
-                picker.querySelectorAll('span').forEach(span => {
-                    const value = span.getAttribute('data-value');
-                    if (sizeLabels[value]) {
-                        span.setAttribute('data-label', sizeLabels[value]);
-                    }
-                });
-            }
+            const sizeItems = document.querySelectorAll('.ql-size .ql-picker-item');
+            sizeItems.forEach(item => {
+                const value = item.getAttribute('data-value');
+                if (sizeLabels[value]) {
+                    item.setAttribute('data-label', sizeLabels[value]);
+                }
+            });
 
             const sizeLabel = document.querySelector('.ql-size .ql-picker-label');
             if (sizeLabel) {
-                sizeLabel.setAttribute('data-value', '16px');
-                sizeLabel.setAttribute('data-label', sizeLabels['16px']);
+                const selectedSize = quill.getFormat().size || '16px';
+                sizeLabel.setAttribute('data-label', sizeLabels[selectedSize] || '16px (標準)');
             }
 
-            const headerPicker = document.querySelector('.ql-header .ql-picker-options');
-            if (headerPicker) {
-                headerPicker.querySelectorAll('.ql-picker-item').forEach(item => {
-                    const value = item.getAttribute('data-value');
-                    if (value) {
-                        item.setAttribute('data-label', `H${value}`);
-                    } else {
-                        item.setAttribute('data-label', '標準');
-                    }
-                });
-            }
+            const headerItems = document.querySelectorAll('.ql-header .ql-picker-item');
+            headerItems.forEach(item => {
+                const value = item.getAttribute('data-value');
+                item.setAttribute('data-label', value ? `H${value}` : '標準');
+            });
 
             const headerLabel = document.querySelector('.ql-header .ql-picker-label');
             if (headerLabel) {
-                headerLabel.setAttribute('data-label', '標準');
+                const selectedHeader = quill.getFormat().header;
+                headerLabel.setAttribute('data-label', selectedHeader ? `H${selectedHeader}` : '標準');
             }
-        }, 500);
+        }
+
+        setTimeout(syncToolbarPickerLabels, 500);
 
         let currentId = null;
         let activeTab = 'drafts';
@@ -964,7 +959,13 @@
                 .replaceAll("'", '&#39;');
         }
 
-        quill.on('text-change', triggerSave);
+        quill.on('text-change', () => {
+            triggerSave();
+            setTimeout(syncToolbarPickerLabels, 0);
+        });
+        quill.on('selection-change', () => {
+            setTimeout(syncToolbarPickerLabels, 0);
+        });
         document.getElementById('input-title').addEventListener('input', triggerSave);
         document.getElementById('input-meta').addEventListener('input', triggerSave);
 
