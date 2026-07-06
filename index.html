@@ -183,6 +183,9 @@
                 <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
                     ＋ 新しい記事を書く
                 </button>
+                <button onclick="toggleBulkImport()" class="w-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 font-bold py-2 px-4 rounded-xl shadow-sm transition">
+                    まとめて貼り付ける
+                </button>
                 <button onclick="toggleJsonImport()" class="w-full bg-[var(--theme-soft)] border border-[var(--theme-border)] text-[var(--theme-main)] hover:opacity-80 font-bold py-2 px-4 rounded-xl shadow-sm transition">
                     JSONから取り込む
                 </button>
@@ -230,6 +233,32 @@
                             カテゴリー選択はあとから拡張機能側で追加する前提です。
                         </p>
                     </div>
+                </div>
+            </div>
+
+            <div id="bulk-import-panel" class="hidden bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="font-bold text-gray-700">記事まるごと取り込み</h2>
+                        <p class="text-xs text-gray-400 mt-1">H1 をタイトルとして取り込み、残りを本文へ入れます。末尾に「メタディスクリプション」があれば自動でメタ欄へ分けます。</p>
+                    </div>
+                    <button onclick="toggleBulkImport(false)" class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-100">
+                        閉じる
+                    </button>
+                </div>
+                <textarea id="bulk-import-input"
+                    class="w-full min-h-[220px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
+                    placeholder="H1付きの本文や、記事全文をここへ貼り付けてください"></textarea>
+                <div class="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-[11px] leading-relaxed text-gray-700">
+                    H1 があればタイトルへ移動します。H1 がない場合は、先頭の1行目をタイトルとして扱います。最後に「メタディスクリプション」と書いてあれば、その下をメタ欄に入れます。
+                </div>
+                <div class="mt-3 flex flex-wrap justify-end gap-2">
+                    <button onclick="clearBulkImport()" class="rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100">
+                        クリア
+                    </button>
+                    <button onclick="importBulkContent()" class="rounded-full border-2 border-[var(--theme-main)] bg-white px-5 py-2 text-sm font-bold text-[var(--theme-main)] hover:bg-[var(--theme-soft)]">
+                        この内容で反映する
+                    </button>
                 </div>
             </div>
 
@@ -561,6 +590,16 @@
             document.getElementById('json-import-input').value = '';
         }
 
+        function toggleBulkImport(forceState) {
+            const panel = document.getElementById('bulk-import-panel');
+            const shouldOpen = typeof forceState === 'boolean' ? forceState : panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !shouldOpen);
+        }
+
+        function clearBulkImport() {
+            document.getElementById('bulk-import-input').value = '';
+        }
+
         async function loadDraft(id) {
             const draft = await db.drafts.get(id);
             if (!draft) return;
@@ -653,6 +692,35 @@
             } catch (error) {
                 console.error(error);
                 showToast('❌ JSONの取り込みに失敗しました');
+            }
+        }
+
+        async function importBulkContent() {
+            const rawInput = document.getElementById('bulk-import-input').value.trim();
+            if (!rawInput) {
+                showToast('❌ 貼り付ける内容がありません');
+                return;
+            }
+
+            try {
+                const parsed = parseBulkImportContent(rawInput);
+                if (!parsed.title && !parsed.bodyHtml && !parsed.meta) {
+                    showToast('❌ 取り込める内容がありません');
+                    return;
+                }
+
+                document.getElementById('input-title').value = parsed.title || '';
+                document.getElementById('input-meta').value = parsed.meta || '';
+                quill.root.innerHTML = parsed.bodyHtml || '';
+
+                clearBulkImport();
+                toggleBulkImport(false);
+                triggerSave();
+                await autoSave();
+                showToast('✅ 記事をまとめて反映しました');
+            } catch (error) {
+                console.error(error);
+                showToast('❌ 一括取り込みに失敗しました');
             }
         }
 
@@ -765,6 +833,167 @@
         function plainTextToEditorHtml(text) {
             if (!text) return '';
             return `<p>${escapeHtml(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br>')}</p>`;
+        }
+
+        function structuredTextToEditorHtml(text) {
+            const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalized.split('\n');
+            const htmlParts = [];
+            let paragraphLines = [];
+
+            function flushParagraph() {
+                if (!paragraphLines.length) return;
+                htmlParts.push(`<p>${paragraphLines.map(line => escapeHtml(line)).join('<br>')}</p>`);
+                paragraphLines = [];
+            }
+
+            lines.forEach(line => {
+                const headingMatch = line.match(/^(#{2,5})\s+(.*)$/);
+                if (headingMatch) {
+                    flushParagraph();
+                    const level = headingMatch[1].length;
+                    htmlParts.push(`<h${level}>${escapeHtml(headingMatch[2].trim())}</h${level}>`);
+                    return;
+                }
+
+                if (!line.trim()) {
+                    flushParagraph();
+                    return;
+                }
+
+                paragraphLines.push(line);
+            });
+
+            flushParagraph();
+            return htmlParts.join('') || '';
+        }
+
+        function normalizeMetaHeadingText(text) {
+            return String(text || '')
+                .replace(/[：:\s]/g, '')
+                .toLowerCase();
+        }
+
+        function isMetaHeading(text) {
+            const normalized = normalizeMetaHeadingText(text);
+            return normalized === 'メタディスクリプション' || normalized === 'metadescription';
+        }
+
+        function cleanupImportedHtml(container) {
+            container.querySelectorAll('script,style').forEach(node => node.remove());
+
+            Array.from(container.querySelectorAll('*')).forEach(node => {
+                if (!node.tagName) return;
+                node.removeAttribute('class');
+                node.removeAttribute('style');
+                node.removeAttribute('id');
+                node.removeAttribute('data-label');
+                node.removeAttribute('data-value');
+            });
+
+            return container.innerHTML.trim();
+        }
+
+        function extractMetaSectionFromHtml(container) {
+            const blocks = Array.from(container.children);
+            if (!blocks.length) {
+                return { meta: '', bodyHtml: cleanupImportedHtml(container) };
+            }
+
+            let metaStartIndex = -1;
+            for (let index = blocks.length - 1; index >= 0; index -= 1) {
+                const text = (blocks[index].textContent || '').trim();
+                if (isMetaHeading(text)) {
+                    metaStartIndex = index;
+                    break;
+                }
+            }
+
+            if (metaStartIndex === -1) {
+                return { meta: '', bodyHtml: cleanupImportedHtml(container) };
+            }
+
+            const metaNodes = blocks.slice(metaStartIndex + 1);
+            const meta = metaNodes
+                .map(node => (node.textContent || '').trim())
+                .filter(Boolean)
+                .join('\n')
+                .trim();
+
+            blocks.slice(metaStartIndex).forEach(node => node.remove());
+            return {
+                meta,
+                bodyHtml: cleanupImportedHtml(container)
+            };
+        }
+
+        function parseBulkImportHtml(rawInput) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(rawInput, 'text/html');
+            const container = document.createElement('div');
+            container.innerHTML = doc.body.innerHTML.trim();
+
+            while (
+                container.children.length === 1 &&
+                ['DIV', 'SECTION', 'ARTICLE', 'MAIN'].includes(container.firstElementChild.tagName)
+            ) {
+                container.innerHTML = container.firstElementChild.innerHTML.trim();
+            }
+
+            let title = '';
+            const firstHeading = container.querySelector('h1');
+            if (firstHeading) {
+                title = (firstHeading.textContent || '').trim();
+                firstHeading.remove();
+            } else {
+                const firstBlock = container.firstElementChild;
+                if (firstBlock) {
+                    title = (firstBlock.textContent || '').trim();
+                    firstBlock.remove();
+                }
+            }
+
+            const { meta, bodyHtml } = extractMetaSectionFromHtml(container);
+            return {
+                title,
+                meta,
+                bodyHtml: bodyHtml || ''
+            };
+        }
+
+        function parseBulkImportText(rawInput) {
+            const normalized = rawInput.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalized.split('\n');
+
+            let titleIndex = lines.findIndex(line => line.trim());
+            const title = titleIndex >= 0 ? lines[titleIndex].trim().replace(/^#\s*/, '') : '';
+            const remainingLines = titleIndex >= 0 ? lines.slice(titleIndex + 1) : lines.slice();
+
+            let metaIndex = -1;
+            for (let index = 0; index < remainingLines.length; index += 1) {
+                if (isMetaHeading(remainingLines[index])) {
+                    metaIndex = index;
+                    break;
+                }
+            }
+
+            let bodyLines = remainingLines;
+            let metaLines = [];
+            if (metaIndex >= 0) {
+                bodyLines = remainingLines.slice(0, metaIndex);
+                metaLines = remainingLines.slice(metaIndex + 1);
+            }
+
+            return {
+                title,
+                meta: metaLines.join('\n').trim(),
+                bodyHtml: structuredTextToEditorHtml(bodyLines.join('\n').trim())
+            };
+        }
+
+        function parseBulkImportContent(rawInput) {
+            const hasHtml = /<[^>]+>/.test(rawInput);
+            return hasHtml ? parseBulkImportHtml(rawInput) : parseBulkImportText(rawInput);
         }
 
         function execCopy(text) {
