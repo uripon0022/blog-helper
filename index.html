@@ -22,7 +22,7 @@
         }
 
         #editor {
-            height: 48vh;
+            height: 50vh;
             font-family: 'M PLUS Rounded 1c', sans-serif;
             font-size: 16px;
         }
@@ -196,7 +196,10 @@
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-[var(--theme-border)] p-4">
-                <label class="block text-xs font-bold text-[var(--theme-main)] mb-2 ml-1">🖊️ 本文</label>
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <label class="block text-xs font-bold text-[var(--theme-main)] ml-1">🖊️ 本文</label>
+                    <span class="text-[11px] font-bold text-gray-400">見出しは H2〜H5 / H1 はタイトル扱い</span>
+                </div>
                 <div id="editor"></div>
             </div>
 
@@ -267,6 +270,7 @@
     </div>
 
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill-image-resize-module@3.0.0/image-resize.min.js"></script>
     <script>
         const themes = {
             pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
@@ -291,23 +295,80 @@
         });
 
         const Size = Quill.import('attributors/style/size');
-        Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '36px'];
+        Size.whitelist = ['10px', '11px', '12px', '13px', '14px', '16px', '18px', '20px', '24px', '36px', '40px', '48px'];
         Quill.register(Size, true);
+
+        if (window.ImageResize) {
+            Quill.register('modules/imageResize', window.ImageResize);
+        }
+
+        function imageHandler() {
+            const range = quill.getSelection(true);
+            const value = prompt('画像のURLを入力してください:');
+            if (value) {
+                quill.insertEmbed(range ? range.index : 0, 'image', value, Quill.sources.USER);
+            }
+        }
 
         let quill = new Quill('#editor', {
             theme: 'snow',
             modules: {
-                toolbar: [
-                    [{ 'size': Size.whitelist }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'color': [] }, { 'background': [] }],
-                    [{ 'align': [] }],
-                    [{ 'header': 1 }, { 'header': 2 }, 'blockquote'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['link', 'clean']
-                ]
+                imageResize: { displaySize: true },
+                toolbar: {
+                    container: [
+                        [{ 'size': Size.whitelist }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'align': [] }, { 'indent': '-1' }, { 'indent': '+1' }],
+                        [{ 'header': [2, 3, 4, 5, false] }, 'blockquote'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link', 'image', 'clean']
+                    ],
+                    handlers: {
+                        image: imageHandler
+                    }
+                }
             }
         });
+
+        setTimeout(() => {
+            const sizeLabels = {
+                '10px': '10px',
+                '11px': '11px',
+                '12px': '12px',
+                '13px': '13px',
+                '14px': '14px',
+                '16px': '16px (標準)',
+                '18px': '18px',
+                '20px': '20px',
+                '24px': '24px (大)',
+                '36px': '36px',
+                '40px': '40px (特大)',
+                '48px': '48px'
+            };
+
+            const picker = document.querySelector('.ql-size .ql-picker-options');
+            if (picker) {
+                picker.querySelectorAll('span').forEach(span => {
+                    const value = span.getAttribute('data-value');
+                    if (sizeLabels[value]) {
+                        span.textContent = sizeLabels[value];
+                    }
+                });
+            }
+
+            const headerPicker = document.querySelector('.ql-header .ql-picker-options');
+            if (headerPicker) {
+                headerPicker.querySelectorAll('.ql-picker-item').forEach(item => {
+                    const value = item.getAttribute('data-value');
+                    if (value) {
+                        item.textContent = `H${value}`;
+                    } else {
+                        item.textContent = '標準';
+                    }
+                });
+            }
+        }, 500);
 
         let currentId = null;
         let activeTab = 'drafts';
