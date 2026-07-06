@@ -106,12 +106,46 @@
             background-color: var(--theme-soft);
         }
 
-        .ql-snow .ql-picker.ql-size .ql-picker-label[data-label]::before,
-        .ql-snow .ql-picker.ql-size .ql-picker-item[data-label]::before,
-        .ql-snow .ql-picker.ql-header .ql-picker-label[data-label]::before,
-        .ql-snow .ql-picker.ql-header .ql-picker-item[data-label]::before {
-            content: attr(data-label);
+        .ql-snow .ql-picker.ql-size .ql-picker-label:not([data-value])::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item:not([data-value])::before {
+            content: '16px (標準)';
         }
+
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10px"]::before { content: '10px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="11px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="11px"]::before { content: '11px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before { content: '12px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="13px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="13px"]::before { content: '13px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before { content: '14px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before { content: '16px (標準)'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before { content: '18px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before { content: '20px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before { content: '24px (大)'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="36px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="36px"]::before { content: '36px'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="40px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="40px"]::before { content: '40px (特大)'; }
+        .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="48px"]::before,
+        .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="48px"]::before { content: '48px'; }
+
+        .ql-snow .ql-picker.ql-header .ql-picker-label:not([data-value])::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item:not([data-value])::before { content: '標準'; }
+        .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="2"]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before { content: 'H2'; }
+        .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="3"]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before { content: 'H3'; }
+        .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="4"]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="4"]::before { content: 'H4'; }
+        .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="5"]::before,
+        .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="5"]::before { content: 'H5'; }
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex flex-col text-gray-700">
@@ -363,51 +397,6 @@
                 }
             }
         });
-
-        function syncToolbarPickerLabels() {
-            const sizeLabels = {
-                '10px': '10px',
-                '11px': '11px',
-                '12px': '12px',
-                '13px': '13px',
-                '14px': '14px',
-                '16px': '16px (標準)',
-                '18px': '18px',
-                '20px': '20px',
-                '24px': '24px (大)',
-                '36px': '36px',
-                '40px': '40px (特大)',
-                '48px': '48px'
-            };
-
-            const sizeItems = document.querySelectorAll('.ql-size .ql-picker-item');
-            sizeItems.forEach(item => {
-                const value = item.getAttribute('data-value');
-                if (sizeLabels[value]) {
-                    item.setAttribute('data-label', sizeLabels[value]);
-                }
-            });
-
-            const sizeLabel = document.querySelector('.ql-size .ql-picker-label');
-            if (sizeLabel) {
-                const selectedSize = quill.getFormat().size || '16px';
-                sizeLabel.setAttribute('data-label', sizeLabels[selectedSize] || '16px (標準)');
-            }
-
-            const headerItems = document.querySelectorAll('.ql-header .ql-picker-item');
-            headerItems.forEach(item => {
-                const value = item.getAttribute('data-value');
-                item.setAttribute('data-label', value ? `H${value}` : '標準');
-            });
-
-            const headerLabel = document.querySelector('.ql-header .ql-picker-label');
-            if (headerLabel) {
-                const selectedHeader = quill.getFormat().header;
-                headerLabel.setAttribute('data-label', selectedHeader ? `H${selectedHeader}` : '標準');
-            }
-        }
-
-        setTimeout(syncToolbarPickerLabels, 500);
 
         let currentId = null;
         let activeTab = 'drafts';
@@ -959,13 +948,7 @@
                 .replaceAll("'", '&#39;');
         }
 
-        quill.on('text-change', () => {
-            triggerSave();
-            setTimeout(syncToolbarPickerLabels, 0);
-        });
-        quill.on('selection-change', () => {
-            setTimeout(syncToolbarPickerLabels, 0);
-        });
+        quill.on('text-change', triggerSave);
         document.getElementById('input-title').addEventListener('input', triggerSave);
         document.getElementById('input-meta').addEventListener('input', triggerSave);
 
