@@ -146,6 +146,28 @@
         .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="4"]::before { content: 'H4'; }
         .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="5"]::before,
         .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="5"]::before { content: 'H5'; }
+
+        .paste-surface {
+            min-height: 220px;
+            border: 1px solid var(--theme-border);
+            border-radius: 16px;
+            background: #f9fafb;
+            padding: 12px;
+            font-size: 14px;
+            color: #374151;
+            overflow-y: auto;
+        }
+
+        .paste-surface:focus {
+            outline: none;
+            border-color: var(--theme-main);
+            background: white;
+        }
+
+        .paste-surface.is-empty::before {
+            content: attr(data-placeholder);
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body class="bg-gray-50 h-screen flex flex-col text-gray-700">
@@ -249,9 +271,10 @@
                         閉じる
                     </button>
                 </div>
-                <textarea id="bulk-import-input"
-                    class="w-full min-h-[220px] rounded-xl border border-[var(--theme-border)] bg-gray-50 p-3 text-sm text-gray-700 focus:outline-none focus:border-[var(--theme-main)]"
-                    placeholder="H1付きの本文や、記事全文をここへ貼り付けてください"></textarea>
+                <div id="bulk-import-input"
+                    class="paste-surface is-empty"
+                    contenteditable="true"
+                    data-placeholder="H1付きの本文や、記事全文をここへ貼り付けてください"></div>
                 <div class="mt-2 rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-[11px] leading-relaxed text-gray-700">
                     H1 があればタイトルへ移動します。H1 がない場合は、先頭の1行目をタイトルとして扱います。最後に「メタディスクリプション」と書いてあれば、その下をメタ欄に入れます。
                 </div>
@@ -558,7 +581,14 @@
         }
 
         function clearBulkImport() {
-            document.getElementById('bulk-import-input').value = '';
+            const input = document.getElementById('bulk-import-input');
+            input.innerHTML = '';
+            updateBulkImportPlaceholder();
+        }
+
+        function updateBulkImportPlaceholder() {
+            const input = document.getElementById('bulk-import-input');
+            input.classList.toggle('is-empty', !input.textContent.trim() && !input.querySelector('img,table,ul,ol,blockquote'));
         }
 
         async function loadDraft(id) {
@@ -595,14 +625,17 @@
         }
 
         async function importBulkContent() {
-            const rawInput = document.getElementById('bulk-import-input').value.trim();
-            if (!rawInput) {
+            const bulkInput = document.getElementById('bulk-import-input');
+            const rawHtml = bulkInput.innerHTML.trim();
+            const rawText = bulkInput.innerText.trim();
+
+            if (!rawHtml && !rawText) {
                 showToast('❌ 貼り付ける内容がありません');
                 return;
             }
 
             try {
-                const parsed = parseBulkImportContent(rawInput);
+                const parsed = parseBulkImportContent({ html: rawHtml, text: rawText });
                 if (!parsed.title && !parsed.bodyHtml && !parsed.meta) {
                     showToast('❌ 取り込める内容がありません');
                     return;
@@ -890,9 +923,11 @@
             };
         }
 
-        function parseBulkImportContent(rawInput) {
-            const hasHtml = /<[^>]+>/.test(rawInput);
-            return hasHtml ? parseBulkImportHtml(rawInput) : parseBulkImportText(rawInput);
+        function parseBulkImportContent(input) {
+            const html = String(input?.html || '').trim();
+            const text = String(input?.text || '').trim();
+            const hasHtml = /<[^>]+>/.test(html);
+            return hasHtml ? parseBulkImportHtml(html) : parseBulkImportText(text);
         }
 
         function execCopy(text) {
@@ -1079,8 +1114,13 @@
         quill.on('text-change', triggerSave);
         document.getElementById('input-title').addEventListener('input', triggerSave);
         document.getElementById('input-meta').addEventListener('input', triggerSave);
+        document.getElementById('bulk-import-input').addEventListener('input', updateBulkImportPlaceholder);
+        document.getElementById('bulk-import-input').addEventListener('paste', () => {
+            setTimeout(updateBulkImportPlaceholder, 0);
+        });
 
         switchTab('drafts');
+        updateBulkImportPlaceholder();
         renderPreview();
     </script>
 </body>
