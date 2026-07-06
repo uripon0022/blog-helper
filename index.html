@@ -817,7 +817,6 @@
             Array.from(container.querySelectorAll('*')).forEach(node => {
                 if (!node.tagName) return;
                 node.removeAttribute('class');
-                node.removeAttribute('style');
                 node.removeAttribute('id');
                 node.removeAttribute('data-label');
                 node.removeAttribute('data-value');
